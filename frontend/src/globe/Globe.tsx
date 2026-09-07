@@ -78,6 +78,7 @@ export function Globe({
   const viewerRef = useRef<Viewer | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [imageryWarning, setImageryWarning] = useState<string | null>(null);
   // Vulcao selecionado e sua posicao em pixels, recalculada a cada quadro.
   const [selected, setSelected] = useState<{
     volcano: Volcano;
@@ -130,6 +131,11 @@ export function Globe({
           selectionIndicator: false,
           terrainProvider,
           contextOptions: {
+            // WebGL 2 explicito. Sem isto o Cesium pede WebGL 1, e em
+            // ambientes onde so ha WebGL 2 ele recebe um contexto degradado
+            // cujo MAX_TEXTURE_SIZE e 0 — o que produz exatamente
+            // "Width must be less than or equal to the maximum texture
+            // size (0)" e um globo preto, sem nenhuma pista da causa.
             // Um contexto com caveat de performance (renderizacao por
             // software) ainda desenha o globo; recusa-lo trocaria uma tela
             // lenta por uma tela vazia.
@@ -147,7 +153,12 @@ export function Globe({
         const { scene } = viewer;
         // Ajustes que separam "esfera com textura" de algo que parece a Terra:
         // sombreamento solar real, atmosfera, e névoa com a distância.
-        scene.globe.enableLighting = true;
+        // Iluminacao solar desligada de proposito. Com ela ligada o globo
+        // fica preto neste ambiente — e, mesmo funcionando, deixaria metade
+        // dos vulcoes na sombra a qualquer momento. Para uma ferramenta de
+        // monitoramento isso e uma perda: o objetivo e ver todos os vulcoes,
+        // nao so os que estao no lado iluminado agora.
+        scene.globe.enableLighting = false;
         scene.globe.showGroundAtmosphere = true;
         scene.globe.depthTestAgainstTerrain = true;
         if (scene.skyAtmosphere) scene.skyAtmosphere.show = true;
@@ -158,12 +169,56 @@ export function Globe({
         scene.highDynamicRange = false;
 
         viewer.camera.setView({
-          destination: Cartesian3.fromDegrees(subsolarLongitude(), 5, 24_000_000),
+          // Vista inicial sobre o Circulo de Fogo do Pacifico, onde esta a
+          // maior concentracao de vulcoes do catalogo.
+          destination: Cartesian3.fromDegrees(140, 5, 24_000_000),
           orientation: {
             heading: 0,
             pitch: CesiumMath.toRadians(-90),
             roll: 0,
           },
+        });
+
+        // O contexto do proprio Cesium e o que importa: a checagem previa usa
+        // um canvas separado, que pode estar saudavel enquanto este nao esta.
+        const ctxTextureSize = (
+          viewer.scene as unknown as {
+            context?: { maximumTextureSize?: number };
+          }
+        ).context?.maximumTextureSize;
+        if (ctxTextureSize !== undefined && ctxTextureSize <= 0) {
+          setError(
+            "O contexto WebGL do globo foi criado sem capacidade de textura " +
+              "(MAX_TEXTURE_SIZE = 0). Recarregue a página; se persistir, " +
+              "verifique a aceleração de hardware do navegador.",
+          );
+          setStatus("error");
+          return;
+        }
+
+        // Erro dentro do laco de renderizacao: sem isto o Cesium para de
+        // desenhar e a tela fica preta sem explicacao nenhuma.
+        viewer.scene.renderError.addEventListener((_scene, err) => {
+          setError(
+            "Falha ao renderizar o globo: " +
+              (err instanceof Error ? err.message : String(err)),
+          );
+          setStatus("error");
+        });
+
+        // Falha ao buscar tiles da imagem de satelite. Nao impede o resto de
+        // funcionar, mas precisa ser dita — e a diferenca entre "a Terra esta
+        // preta porque a fonte falhou" e "esta preta e ninguem sabe por que".
+        let tileErrors = 0;
+        imageryProvider.errorEvent.addEventListener((e) => {
+          tileErrors++;
+          if (tileErrors === 1) {
+            console.warn("Falha ao carregar tile de imagem de satelite:", e);
+            setImageryWarning(
+              "A imagem de satélite não carregou. O globo funciona, mas sem " +
+                "textura de superfície.",
+            );
+          }
         });
 
         viewer.scene.canvas.addEventListener("webglcontextlost", (ev) => {
@@ -250,6 +305,9 @@ export function Globe({
       {status === "loading" && (
         <div className="globe-overlay">Carregando o globo…</div>
       )}
+      {imageryWarning && status === "ready" && (
+        <div className="globe-warning">{imageryWarning}</div>
+      )}
       {status === "error" && (
         <div className="globe-overlay globe-overlay--error">
           Não foi possível iniciar o globo: {error}
@@ -257,24 +315,6 @@ export function Globe({
       )}
     </div>
   );
-}
-
-/**
- * Longitude aproximada do ponto subsolar agora.
- *
- * Com a iluminacao solar ligada, uma camera em longitude fixa mostra a Terra
- * no escuro em metade do dia — a superficie some e so os pontos ficam
- * visiveis. Abrir sobre o lado iluminado evita isso sem desligar a
- * iluminacao, que e justamente o que da realismo ao globo.
- */
-function subsolarLongitude(): number {
-  const now = new Date();
-  const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60;
-  // O Sol cruza o meridiano 0 por volta das 12h UTC e anda 15 graus por hora.
-  let lon = (12 - utcHours) * 15;
-  while (lon > 180) lon -= 360;
-  while (lon < -180) lon += 360;
-  return lon;
 }
 
 /**

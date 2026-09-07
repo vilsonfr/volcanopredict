@@ -501,3 +501,18 @@ footer {
   line-height: 1.4;
   color: var(--muted);
 }
+
+.globe-warning {
+  position: absolute;
+  left: 18px;
+  bottom: 44px;
+  max-width: 340px;
+  background: #1a1208e6;
+  border: 1px solid #6b4a2f;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: #e6d6bf;
+  z-index: 2;
+}

@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Globe, type GlobeControls } from "./globe/Globe";
 import { SearchPanel } from "./ui/SearchPanel";
@@ -135,8 +135,9 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// Sem StrictMode de proposito: ele monta cada efeito duas vezes em
+// desenvolvimento, e um Viewer do Cesium por montagem significa dois contextos
+// WebGL disputando o mesmo container. O navegador limita quantos contextos
+// existem, e o excedente vem degradado — sem capacidade de textura, o que
+// desenha um globo preto sem erro visivel.
+createRoot(document.getElementById("root")!).render(<App />);
