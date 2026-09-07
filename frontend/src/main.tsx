@@ -7,6 +7,12 @@ import "./style.css";
 function App() {
   const [hasRealTerrain, setHasRealTerrain] = useState<boolean | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [volcanoCount, setVolcanoCount] = useState<number | null>(null);
+  const [volcanoError, setVolcanoError] = useState<string | null>(null);
+  const onVolcanoesLoaded = useCallback((count: number, error?: string) => {
+    setVolcanoCount(count);
+    setVolcanoError(error ?? null);
+  }, []);
   const onTerrainResolved = useCallback(
     (v: boolean) => setHasRealTerrain(v),
     [],
@@ -29,13 +35,22 @@ function App() {
       </header>
 
       <section className="stage">
-        <Globe onTerrainResolved={onTerrainResolved} />
+        <Globe
+          onTerrainResolved={onTerrainResolved}
+          onVolcanoesLoaded={onVolcanoesLoaded}
+        />
 
         <aside className="panel">
           <h2>Camadas</h2>
           <label>
-            <input type="checkbox" disabled /> Vulcões
-            <em>catálogo ainda não importado</em>
+            <input type="checkbox" checked readOnly /> Vulcões
+            <em>
+              {volcanoError
+                ? "indisponível"
+                : volcanoCount === null
+                  ? "carregando…"
+                  : `${volcanoCount.toLocaleString("pt-BR")}`}
+            </em>
           </label>
           <label>
             <input type="checkbox" disabled /> Terremotos <em>V0.2</em>
@@ -53,6 +68,11 @@ function App() {
             <input type="checkbox" disabled /> Atividade solar <em>futuro</em>
           </label>
 
+          {volcanoError && (
+            <p className="hint hint--error">
+              Não foi possível carregar o catálogo pela API: {volcanoError}
+            </p>
+          )}
           {hasRealTerrain === false && (
             <p className="hint">
               Relevo 3D desligado. Defina <code>VITE_CESIUM_ION_TOKEN</code> no{" "}

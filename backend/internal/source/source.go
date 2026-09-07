@@ -17,6 +17,7 @@ import (
 // Querier is the subset of pgxpool.Pool (or pgx.Tx) this package needs.
 type Querier interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
 // Source is a registered external data source row.
@@ -72,4 +73,36 @@ func GetEnabledByName(ctx context.Context, q Querier, name string) (Source, erro
 		return Source{}, fmt.Errorf("%w: %q", ErrDisabled, name)
 	}
 	return s, nil
+}
+
+// List returns every registered source, ordered by name.
+//
+// The catalog is public on purpose: the api-publica spec requires that a
+// consumer be able to reach the attribution a source demands, and the
+// registro-de-fontes spec requires the catalog itself to be auditable —
+// including sources that are registered but not yet enabled for ingestion.
+func List(ctx context.Context, q Querier) ([]Source, error) {
+	rows, err := q.Query(ctx, `
+		SELECT id, name, coalesce(base_url, ''), category, enabled,
+		       coalesce(license, ''), coalesce(attribution, '')
+		FROM data_sources
+		ORDER BY name`)
+	if err != nil {
+		return nil, fmt.Errorf("source: list: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Source
+	for rows.Next() {
+		var s Source
+		if err := rows.Scan(&s.ID, &s.Name, &s.BaseURL, &s.Category,
+			&s.Enabled, &s.License, &s.Attribution); err != nil {
+			return nil, fmt.Errorf("source: list: scan: %w", err)
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("source: list: %w", err)
+	}
+	return out, nil
 }

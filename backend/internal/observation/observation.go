@@ -62,12 +62,15 @@ type Observation struct {
 // Query describes a temporal read. AsOf, when nil, means "current
 // knowledge" (spec: "ausência de instante retorna o estado atual").
 type Query struct {
-	VolcanoID  *int64
-	Kind       *string
+	VolcanoID    *int64
+	Kind         *string
 	ObservedFrom *time.Time
 	ObservedTo   *time.Time
-	AsOf       *time.Time
-	Provenance Provenance
+	AsOf         *time.Time
+	Provenance   Provenance
+	// Limit caps how many rows are returned. Zero means no cap; callers that
+	// serve HTTP must always set it.
+	Limit int
 }
 
 // NewObservation is the shape accepted for a write. IngestedAt is
@@ -148,6 +151,10 @@ func List(ctx context.Context, q Querier, query Query) ([]Observation, error) {
 		) current_versions
 		ORDER BY observed_at ASC, id ASC
 	`
+	if query.Limit > 0 {
+		args = append(args, query.Limit)
+		sql += fmt.Sprintf(" LIMIT $%d", len(args))
+	}
 
 	rows, err := q.Query(ctx, sql, args...)
 	if err != nil {
