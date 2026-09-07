@@ -100,3 +100,21 @@ export async function fetchAllVolcanoes(
     "pagination_overflow",
   );
 }
+
+/**
+ * Busca vulcões por nome ou país.
+ *
+ * A filtragem acontece no servidor, não aqui: a API é quem define o que casa
+ * com um termo, e essa definição precisa continuar valendo para qualquer
+ * consumidor, não só para esta interface.
+ */
+export async function searchVolcanoes(
+  term: string,
+  limit = 20,
+): Promise<Volcano[]> {
+  const res = await get<Volcano[]>("/api/v1/volcanoes", {
+    q: term,
+    limit: String(limit),
+  });
+  return res.data;
+}

@@ -57,12 +57,22 @@ function detectWebGLProblem(): string | null {
   return null;
 }
 
+/** Acoes que o painel pode disparar sobre o globo. */
+export type GlobeControls = {
+  /** Aproxima a camera de um vulcao e abre seu balao. */
+  focus: (volcano: Volcano) => void;
+  /** Liga ou desliga a camada de vulcoes. */
+  setVolcanoesVisible: (visible: boolean) => void;
+};
+
 export function Globe({
   onTerrainResolved,
   onVolcanoesLoaded,
+  onReady,
 }: {
   onTerrainResolved?: (hasRealTerrain: boolean) => void;
   onVolcanoesLoaded?: (count: number, error?: string) => void;
+  onReady?: (controls: GlobeControls) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
@@ -178,6 +188,33 @@ export function Globe({
           byIdRef.current = new Map(volcanoes.map((v) => [v.id, v]));
           wireSelection(viewer, byIdRef.current, selectedIdRef, setSelected);
           onVolcanoesLoaded?.(volcanoes.length);
+
+          const v = viewer;
+          onReady?.({
+            focus: (volcano) => {
+              selectedIdRef.current = volcano.id;
+              v.camera.flyTo({
+                destination: Cartesian3.fromDegrees(
+                  volcano.longitude,
+                  volcano.latitude,
+                  // Altura que mostra o vulcao e o entorno; perto o bastante
+                  // para dar contexto geografico, longe o bastante para nao
+                  // parecer uma textura borrada.
+                  450_000,
+                ),
+                duration: 1.6,
+              });
+            },
+            setVolcanoesVisible: (visible) => {
+              for (const entity of v.entities.values) {
+                entity.show = visible;
+              }
+              if (!visible) {
+                selectedIdRef.current = null;
+                setSelected(null);
+              }
+            },
+          });
         } catch (e) {
           if (cancelled) return;
           onVolcanoesLoaded?.(0, e instanceof Error ? e.message : String(e));
@@ -194,7 +231,7 @@ export function Globe({
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
       viewerRef.current = null;
     };
-  }, [onTerrainResolved, onVolcanoesLoaded]);
+  }, [onTerrainResolved, onVolcanoesLoaded, onReady]);
 
   return (
     <div className="globe-root">

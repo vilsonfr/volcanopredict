@@ -47,15 +47,15 @@
 
 ## 6. API sobre o banco
 
-- [ ] 6.1 Implementar em `internal/httpapi` o envelope de resposta (`data`, `meta`, `attribution`) e o formato único de erro com código estável e identificador de correlação; verificar com testes que erro `400` nomeia o parâmetro rejeitado e que `500` não expõe SQL, caminho de arquivo nem rastro de pilha
-- [ ] 6.2 Preencher `meta.disclaimer` na camada de serialização para toda resposta com valor derivado; verificar com teste que a ressalva permanece mesmo quando a requisição tenta suprimi-la por parâmetro ou cabeçalho
-- [ ] 6.3 Implementar paginação por keyset com cursor opaco e ordenação total incluindo `id`; verificar com testes que percorrer a coleção inteira não repete nem omite item, que limite acima do máximo retorna `400`, e que coleção vazia retorna `200`
-- [ ] 6.4 Implementar `GET /api/v1/volcanoes` com filtro por proximidade usando PostGIS, retornando distância em cada item e ordenando por distância crescente; verificar com teste de integração sobre coordenadas conhecidas e com teste de que latitude fora de faixa retorna `400`
-- [ ] 6.5 Reescrever `GET /api/v1/events` para ler do banco com filtro por janela temporal, instante as-of e proveniência, removendo o evento demo hardcoded; verificar com teste que janela invertida retorna `400` e que a ausência de dado real retorna coleção vazia em vez de dado sintético
-- [ ] 6.6 Fazer `/health` refletir conectividade com o banco e versão de schema esperada; verificar com testes que banco indisponível e schema desatualizado impedem `200`
-- [ ] 6.7 Retornar `404` para caminhos da API sem prefixo de versão; verificar com teste
-- [ ] 6.8 Implementar middleware de log estruturado com método, caminho, status, duração e identificador de correlação, redigindo valores sensíveis; verificar com testes que o identificador da resposta `500` aparece no log e que um valor sensível em parâmetro sai redigido
-- [ ] 6.9 Expor a atribuição da fonte nas respostas que servem dado externo; verificar com teste que um registro originado do GVP permite chegar ao texto de atribuição exigido
+- [x] 6.1 Implementar em `internal/httpapi` o envelope de resposta (`data`, `meta`, `attribution`) e o formato único de erro com código estável e identificador de correlação; verificar com testes que erro `400` nomeia o parâmetro rejeitado e que `500` não expõe SQL, caminho de arquivo nem rastro de pilha
+- [x] 6.2 Preencher `meta.disclaimer` na camada de serialização para toda resposta com valor derivado; verificar com teste que a ressalva permanece mesmo quando a requisição tenta suprimi-la por parâmetro ou cabeçalho
+- [x] 6.3 Implementar paginação por keyset com cursor opaco e ordenação total incluindo `id`; verificar com testes que percorrer a coleção inteira não repete nem omite item, que limite acima do máximo retorna `400`, e que coleção vazia retorna `200`
+- [x] 6.4 Implementar `GET /api/v1/volcanoes` com filtro por proximidade usando PostGIS, retornando distância em cada item e ordenando por distância crescente; verificar com teste de integração sobre coordenadas conhecidas e com teste de que latitude fora de faixa retorna `400`
+- [x] 6.5 Reescrever `GET /api/v1/events` para ler do banco com filtro por janela temporal, instante as-of e proveniência, removendo o evento demo hardcoded; verificar com teste que janela invertida retorna `400` e que a ausência de dado real retorna coleção vazia em vez de dado sintético
+- [x] 6.6 Fazer `/health` refletir conectividade com o banco e versão de schema esperada; verificar com testes que banco indisponível e schema desatualizado impedem `200`
+- [x] 6.7 Retornar `404` para caminhos da API sem prefixo de versão; verificar com teste
+- [x] 6.8 Implementar middleware de log estruturado com método, caminho, status, duração e identificador de correlação, redigindo valores sensíveis; verificar com testes que o identificador da resposta `500` aparece no log e que um valor sensível em parâmetro sai redigido
+- [x] 6.9 Expor a atribuição da fonte nas respostas que servem dado externo; verificar com teste que um registro originado do GVP permite chegar ao texto de atribuição exigido
 
 ## 7. Testes, CI e documentação
 

@@ -393,3 +393,111 @@ footer {
   line-height: 1.4;
   color: var(--muted);
 }
+
+/* --- Busca -------------------------------------------------------------- */
+
+.search input {
+  width: 100%;
+  background: #0a1220;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.search input:focus-visible {
+  outline: none;
+  border-color: #33506f;
+}
+
+.search input::placeholder {
+  color: #5d708a;
+}
+
+.search__msg {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.search__msg--error {
+  color: #ff9d9d;
+}
+
+.search__results {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.search__results li + li {
+  border-top: 1px solid var(--line);
+}
+
+.search__results button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search__results button:hover {
+  background: #142338;
+}
+
+.search__country {
+  color: var(--muted);
+  font-size: 0.72rem;
+  flex: 0 0 auto;
+}
+
+/* --- Legenda ------------------------------------------------------------ */
+
+.legend {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  color: #c8d5e6;
+}
+
+.legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px #0006;
+}
+
+.legend p {
+  margin: 9px 0 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--muted);
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/vilsonfr/volcanopredict/backend/internal/observation"
@@ -109,6 +110,8 @@ func (s *Server) handleListVolcanoes(w http.ResponseWriter, r *http.Request) {
 	lq := volcano.ListQuery{
 		Limit:         limit,
 		Country:       r.URL.Query().Get("country"),
+		Search:        strings.TrimSpace(r.URL.Query().Get("q")),
+		Status:        r.URL.Query().Get("status"),
 		IncludeAbsent: r.URL.Query().Get("include_absent") == "true",
 		AfterID:       cursor.ID,
 	}

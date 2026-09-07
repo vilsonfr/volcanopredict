@@ -28,6 +28,11 @@ type ListQuery struct {
 	Near *NearPoint
 	// Country filters by exact country string when non-empty.
 	Country string
+	// Search matches volcanoes whose name or country contains the term,
+	// case-insensitively.
+	Search string
+	// Status filters by the source's activity-evidence classification.
+	Status string
 	// IncludeAbsent controls whether volcanoes no longer present in their
 	// source are returned. They are kept in the catalog forever, but a plain
 	// listing should not silently mix them with current records.
@@ -105,6 +110,19 @@ func List(ctx context.Context, q Querier, lq ListQuery) ([]Result, error) {
 	if lq.Country != "" {
 		where = append(where, fmt.Sprintf("v.country = %s", arg(lq.Country)))
 	}
+	if lq.Status != "" {
+		where = append(where, fmt.Sprintf("v.status = %s", arg(lq.Status)))
+	}
+	if lq.Search != "" {
+		// ILIKE com curinga nas duas pontas: o termo pode aparecer em
+		// qualquer posicao do nome ou do pais. Escapamos os curingas do
+		// proprio termo para que "%" digitado pelo usuario seja tratado como
+		// texto, e nao como "case tudo".
+		term := "%" + escapeLike(lq.Search) + "%"
+		where = append(where, fmt.Sprintf(
+			"(v.name ILIKE %s ESCAPE '\\' OR v.country ILIKE %s ESCAPE '\\')",
+			arg(term), arg(term)))
+	}
 	if !lq.IncludeAbsent {
 		where = append(where, "v.absent_from_source_at IS NULL")
 	}
@@ -141,6 +159,12 @@ func List(ctx context.Context, q Querier, lq ListQuery) ([]Result, error) {
 		return nil, fmt.Errorf("volcano: list: %w", err)
 	}
 	return out, nil
+}
+
+// escapeLike neutraliza os curingas do LIKE dentro de um termo de busca.
+func escapeLike(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
+	return r.Replace(s)
 }
 
 // Count returns how many volcanoes are currently present in the catalog,
