@@ -18,9 +18,10 @@ Toda linha com `enabled = true` precisa ter uma seção detalhada abaixo.
 
 ## Fontes habilitadas
 
-| Fonte | Domínio | Licença | Atribuição | Cadência | Snapshot |
-|---|---|---|---|---|---|
-| Smithsonian Global Volcanism Program | catálogo de vulcões e erupções | `public-domain-us-govt-work-attribution-required` | Global Volcanism Program, Smithsonian Institution | atualização maior anual (normalmente até início de junho), menores a cada 6-8 semanas | VOTW v5.4.0, baixado em 07 Sep 2026 — `backend/data/gvp/MANIFEST.md` |
+| Fonte | Domínio | Licença | Atribuição | Cadência de publicação | Cadência de coleta | Snapshot |
+|---|---|---|---|---|---|---|
+| Smithsonian Global Volcanism Program | catálogo de vulcões e erupções | `public-domain-us-govt-work-attribution-required` | Global Volcanism Program, Smithsonian Institution | atualização maior anual (normalmente até início de junho), menores a cada 6-8 semanas | manual, ao trocar o snapshot | VOTW v5.4.0, baixado em 07 Sep 2026 — `backend/data/gvp/MANIFEST.md` |
+| USGS Earthquake Hazards Program | sismos | `public-domain-us-govt-work-attribution-required` | U.S. Geological Survey | contínua; eventos revisados depois de publicados | periódica, configurável | sem snapshot — ingestão por API |
 
 ## Fontes registradas e desabilitadas
 
@@ -33,9 +34,8 @@ migração que preenche as colunas, como a `010` fez para o GVP.
 
 | Fonte | Domínio | Uso pretendido | Estado |
 |---|---|---|---|
-| USGS Earthquake Hazards Program | sismos | eventos sísmicos | licença não determinada — desabilitada |
 | USGS Volcano Hazards Program | vulcões EUA | observações e níveis de alerta | licença não determinada — desabilitada |
-| PVMBG | Indonésia | atividade vulcânica | licença não determinada — desabilitada |
+| PVMBG | Indonésia | atividade vulcânica | **bloqueada** — a fonte proíbe coleta automatizada; ver seção própria abaixo |
 | BMKG | Indonésia | sismos, clima e tsunami | licença não determinada — desabilitada |
 | NOAA | meteorologia | vento e atmosfera | licença não determinada — desabilitada |
 | NASA Earthdata | satélite | observações remotas | licença não determinada — desabilitada |
@@ -46,6 +46,118 @@ migração que preenche as colunas, como a `010` fez para o GVP.
 
 Chaves e tokens de API, quando alguma fonte exigir, ficam no `.env` e nunca no
 repositório.
+
+---
+
+## USGS Earthquake Hazards Program
+
+Primeira fonte de ingestão contínua do projeto. O dado vem do **ANSS
+Comprehensive Catalog (ComCat)**, repositório centralizado de parâmetros de
+sismos produzidos pelas redes sismográficas contribuintes.
+
+### Licenciamento
+
+- Dado produzido ou autorado pelo USGS está em **domínio público dos EUA**:
+  "USGS-authored or produced data and information are in the U.S. Public
+  Domain." O reuso é livre; o que se pede é **crédito**.
+- Identificador de licença gravado em `data_sources.license`:
+  `public-domain-us-govt-work-attribution-required`, o mesmo do GVP, porque a
+  condição é a mesma — obra de agência federal, com atribuição devida.
+- Termos: <https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits>
+- Ressalva: o USGS hospeda material de terceiros que **não** está em domínio
+  público, e o marca como tal. Isso vale para fotos e figuras; não vale para os
+  parâmetros de sismo do ComCat, que é o que este projeto ingere.
+
+### Citação e atribuição
+
+Citação formal do catálogo:
+
+> U.S. Geological Survey, 2017, Advanced National Seismic System (ANSS)
+> Comprehensive Catalog of Earthquake Events and Products.
+> <https://doi.org/10.5066/F7MS3QZH>
+
+Atribuição mínima em telas e respostas: *U.S. Geological Survey*, gravada em
+`data_sources.attribution` e devolvida no campo `attribution` do envelope de
+toda resposta que serve dado da fonte.
+
+### Como é coletado
+
+- **API:** FDSN Event Web Service,
+  `https://earthquake.usgs.gov/fdsnws/event/1/query`.
+- **Por que não os feeds GeoJSON de tempo real:** os feeds têm janela fixa e
+  não expõem revisão — um evento corrigido há duas semanas não reaparece em
+  `all_day`. O FDSN aceita `updatedafter`, que devolve os eventos cujo registro
+  mudou desde um instante. É a pergunta que uma ingestão incremental sobre
+  banco bitemporal precisa fazer.
+- **Teto por requisição:** 20.000 eventos. Janela maior é percorrida em páginas.
+- **Escopo:** global, sem filtro de magnitude nem de proximidade. A associação
+  a vulcões é consulta geoespacial sobre o dado guardado, não critério do que
+  se ingere.
+
+### Cadência
+
+- **Publicação:** contínua. Os feeds atualizam a cada minuto, e o catálogo
+  recebe revisões a qualquer momento.
+- **Revisão é a regra, não a exceção.** Um evento nasce com
+  `status = automatic`, posto por processamento automático sem verificação
+  humana, e pode passar a `status = reviewed` depois que uma pessoa o analisa —
+  "de uma checagem rápida de validade a uma reanálise cuidadosa". Magnitudes
+  preliminares, sobretudo as estimadas depressa para alerta de tsunami, são
+  **substituídas** por estimativas melhores conforme chega mais dado.
+- É exatamente por isso que esta é a primeira fonte: cada revisão dessas é uma
+  versão nova no armazenamento bitemporal, e o que se sabia antes continua
+  recuperável por consulta as-of.
+- **Coleta:** periódica e configurável, ancorada na última execução
+  bem-sucedida com sobreposição de segurança.
+
+---
+
+## PVMBG / MAGMA Indonesia — bloqueada
+
+A fonte permanece registrada e **desabilitada**, e o bloqueio não é por
+licença indeterminada: é porque a fonte **proíbe coleta automatizada**.
+
+Evidência levantada em 07/09/2026:
+
+- `https://magma.esdm.go.id/robots.txt` responde exatamente:
+
+  ```
+  User-agent: *
+  Disallow: /
+  ```
+
+  Isto proíbe coleta automatizada do site inteiro, para qualquer cliente.
+- **Não existe API pública documentada.** O endpoint que circula
+  (`/v1/gunung-api/tingkat-aktivitas`) devolve **HTML**, não JSON. O projeto
+  "Magma-Indonesia-API" que aparece em buscas é não-oficial e funciona
+  raspando essa página — não é contrato de API, e usá-lo seria herdar a
+  raspagem.
+- **Não há página de termos de uso nem licença publicada.** O rodapé traz
+  "Copyright 2026 © All Rights Reserved. MAGMA Indonesia".
+- O próprio MAGMA credita fontes de terceiros (BMKG, USGS, GFZ, Global CMT,
+  Smithsonian GVP, OpenStreetMap, ESRI), então redistribuir seu conteúdo
+  envolveria também os termos dessas fontes.
+
+Coletar dali violaria a política declarada da fonte e a regra deste projeto de
+não usar fonte sem condições de uso determinadas. Não é obstáculo técnico: é
+decisão de licenciamento.
+
+**O que destrava a fonte** — qualquer um destes, e nesta ordem de preferência:
+
+1. Permissão escrita do PVMBG/Badan Geologi autorizando acesso programático,
+   com limites de taxa acordados. Contato pelo canal institucional do
+   MAGMA Indonesia / Badan Geologi (ESDM).
+2. Publicação, pelo PVMBG, de API oficial com termos de uso — o que tornaria o
+   `robots.txt` do site irrelevante para o endpoint de dados.
+3. Uma redistribuição licenciada do mesmo dado por terceiro autorizado.
+
+Enquanto nada disso existir, o dado de nível de atividade dos vulcões
+indonésios fica fora do sistema. Preencher essa lacuna com estimativa própria
+seria inventar dado (§89.3) e não será feito.
+
+Ao destravar: registrar aqui a licença, a atribuição e a cadência, e escrever a
+migração que preenche as colunas e limpa o motivo do bloqueio — mesma
+disciplina da `010` para o GVP.
 
 ---
 

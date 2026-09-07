@@ -139,17 +139,24 @@ func TestEarthquakes_TwoRevisionsCoexist(t *testing.T) {
 
 	srcID := mustSource(t, pool, "eq-revisions")
 
+	// quality_state, parser_version and raw became required in migrations
+	// 014: forgetting to evaluate quality must fail at the database, the
+	// same discipline is_synthetic has.
 	_, err := pool.Exec(ctx, `
-		INSERT INTO earthquakes (external_id, source_id, occurred_at, location, magnitude, is_synthetic)
-		VALUES ('us1000abcd', $1, now() - interval '1 day', ST_GeogFromText('POINT(105.4 -6.1)'), 5.1, false)
+		INSERT INTO earthquakes (external_id, source_id, occurred_at, location, magnitude, is_synthetic,
+		                         quality_state, parser_version, raw)
+		VALUES ('us1000abcd', $1, now() - interval '1 day', ST_GeogFromText('POINT(105.4 -6.1)'), 5.1, false,
+		        'valid', 'test', '{}'::jsonb)
 	`, srcID)
 	if err != nil {
 		t.Fatalf("first insert failed: %v", err)
 	}
 
 	_, err = pool.Exec(ctx, `
-		INSERT INTO earthquakes (external_id, source_id, occurred_at, location, magnitude, is_synthetic)
-		VALUES ('us1000abcd', $1, now() - interval '1 day', ST_GeogFromText('POINT(105.4 -6.1)'), 5.4, false)
+		INSERT INTO earthquakes (external_id, source_id, occurred_at, location, magnitude, is_synthetic,
+		                         quality_state, parser_version, raw)
+		VALUES ('us1000abcd', $1, now() - interval '1 day', ST_GeogFromText('POINT(105.4 -6.1)'), 5.4, false,
+		        'valid', 'test', '{}'::jsonb)
 	`, srcID)
 	if err != nil {
 		t.Fatalf("revised insert failed (revisions must coexist as new rows): %v", err)

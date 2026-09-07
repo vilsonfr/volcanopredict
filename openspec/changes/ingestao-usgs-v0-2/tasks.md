@@ -1,16 +1,16 @@
 ## 1. Registro da fonte e condições de uso
 
-- [ ] 1.1 Documentar em `docs/DATA_SOURCES.md` a seção do USGS Earthquake Hazards Program — licença (domínio público dos EUA, obra de agência federal), texto de atribuição exigido, URL dos termos, cadência de publicação da fonte e cadência de coleta pretendida; verificar por inspeção que cada campo tem origem citável, sem valor inventado
-- [ ] 1.2 Registrar em `docs/DATA_SOURCES.md` a decisão sobre o PVMBG com a evidência que a sustenta (`robots.txt` com `Disallow: /`, ausência de API e de termos, aviso de direitos reservados) e o que exatamente destravaria a fonte; verificar que o documento diz o que fazer para desbloquear, não apenas que está bloqueado
-- [ ] 1.3 Migração adicionando a `data_sources` as colunas de cadência de coleta, política de coleta declarada pela fonte e motivo de bloqueio; verificar com teste que fonte com política de bloqueio não pode ser habilitada, mesmo com licença preenchida
-- [ ] 1.4 Migração de dados preenchendo licença, atribuição, termos e cadências do USGS e habilitando a fonte, e gravando o motivo do bloqueio do PVMBG; verificar com teste que o USGS fica habilitado, que o PVMBG permanece desabilitado com motivo, e que nenhuma outra fonte foi habilitada de carona
+- [x] 1.1 Documentar em `docs/DATA_SOURCES.md` a seção do USGS Earthquake Hazards Program — licença (domínio público dos EUA, obra de agência federal), texto de atribuição exigido, URL dos termos, cadência de publicação da fonte e cadência de coleta pretendida; verificar por inspeção que cada campo tem origem citável, sem valor inventado
+- [x] 1.2 Registrar em `docs/DATA_SOURCES.md` a decisão sobre o PVMBG com a evidência que a sustenta (`robots.txt` com `Disallow: /`, ausência de API e de termos, aviso de direitos reservados) e o que exatamente destravaria a fonte; verificar que o documento diz o que fazer para desbloquear, não apenas que está bloqueado
+- [x] 1.3 Migração adicionando a `data_sources` as colunas de cadência de coleta, política de coleta declarada pela fonte e motivo de bloqueio; verificar com teste que fonte com política de bloqueio não pode ser habilitada, mesmo com licença preenchida
+- [x] 1.4 Migração de dados preenchendo licença, atribuição, termos e cadências do USGS e habilitando a fonte, e gravando o motivo do bloqueio do PVMBG; verificar com teste que o USGS fica habilitado, que o PVMBG permanece desabilitado com motivo, e que nenhuma outra fonte foi habilitada de carona
 
 ## 2. Schema da ingestão
 
-- [ ] 2.1 Migração acrescentando a `earthquakes` o status do evento na fonte, o tipo de magnitude e os indicadores de qualidade da solução (`rms`, `gap`, `nst`, `dmin`); verificar com teste que a migração aplica sobre a tabela existente e que os índices temporais da `006` continuam válidos
-- [ ] 2.2 Migração acrescentando a `earthquakes` o estado de qualidade `NOT NULL` **sem `DEFAULT`**, o motivo, a versão do parser, a versão da fonte e o dado cru; verificar com testes que `INSERT` omitindo o estado de qualidade falha no banco, e que estado fora do conjunto permitido é rejeitado
-- [ ] 2.3 Migração criando a tabela de execuções de ingestão — fonte, início, fim, janela consultada, resultado, contagens de inseridos/atualizados/rejeitados e mensagem de erro — com índice por fonte e instante; verificar com teste que duas execuções da mesma fonte coexistem e que a mais recente é recuperável por consulta indexada
-- [ ] 2.4 Verificação de integração das migrações: aplicar da base vazia e sobre um banco já migrado da V0.1, confirmando que subir duas vezes não reaplica e que a `earthquakes` preexistente sobrevive com os dados que tiver
+- [x] 2.1 Migração acrescentando a `earthquakes` o status do evento na fonte, o tipo de magnitude e os indicadores de qualidade da solução (`rms`, `gap`, `nst`, `dmin`); verificar com teste que a migração aplica sobre a tabela existente e que os índices temporais da `006` continuam válidos
+- [x] 2.2 Migração acrescentando a `earthquakes` o estado de qualidade `NOT NULL` **sem `DEFAULT`**, o motivo, a versão do parser, a versão da fonte e o dado cru; verificar com testes que `INSERT` omitindo o estado de qualidade falha no banco, e que estado fora do conjunto permitido é rejeitado
+- [x] 2.3 Migração criando a tabela de execuções de ingestão — fonte, início, fim, janela consultada, resultado, contagens de inseridos/atualizados/rejeitados e mensagem de erro — com índice por fonte e instante; verificar com teste que duas execuções da mesma fonte coexistem e que a mais recente é recuperável por consulta indexada
+- [x] 2.4 Verificação de integração das migrações: aplicar da base vazia e sobre um banco já migrado da V0.1, confirmando que subir duas vezes não reaplica e que a `earthquakes` preexistente sobrevive com os dados que tiver
 
 ## 3. Cliente HTTP da fonte
 
