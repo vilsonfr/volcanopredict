@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build, vet, testes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: go build
+        working-directory: backend
+        run: go build ./...
+
+      - name: go vet
+        working-directory: backend
+        run: go vet ./...
+
+      # A suite rápida roda primeiro: se algo puramente unitário quebrou, o
+      # log aponta isso antes de qualquer container subir.
+      - name: Testes unitários (sem Docker)
+        working-directory: backend
+        run: go test -short ./...
+
+      # A suíte completa sobe PostGIS efêmero via testcontainers-go. O runner
+      # do GitHub já tem o daemon do Docker disponível para o usuário do job.
+      # Ryuk fica desabilitado: o runner é descartado ao fim do job, então o
+      # container de limpeza só adiciona uma dependência a mais para falhar.
+      - name: Testes de integração (testcontainers + PostGIS)
+        working-directory: backend
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: go test ./...
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        working-directory: frontend
+        run: npm ci
+
+      # `vite build` só transpila: erro de tipo passa direto por ele. Sem este
+      # passo, nada no CI olha os tipos do frontend.
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build

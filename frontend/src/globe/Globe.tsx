@@ -131,14 +131,10 @@ export function Globe({
           selectionIndicator: false,
           terrainProvider,
           contextOptions: {
-            // WebGL 2 explicito. Sem isto o Cesium pede WebGL 1, e em
-            // ambientes onde so ha WebGL 2 ele recebe um contexto degradado
-            // cujo MAX_TEXTURE_SIZE e 0 — o que produz exatamente
-            // "Width must be less than or equal to the maximum texture
-            // size (0)" e um globo preto, sem nenhuma pista da causa.
             // Um contexto com caveat de performance (renderizacao por
             // software) ainda desenha o globo; recusa-lo trocaria uma tela
-            // lenta por uma tela vazia.
+            // lenta por uma tela vazia. O Cesium ja pede WebGL 2 por padrao,
+            // entao nao ha nada a declarar aqui alem disso.
             webgl: { failIfMajorPerformanceCaveat: false },
           },
         });
@@ -181,18 +177,31 @@ export function Globe({
 
         // O contexto do proprio Cesium e o que importa: a checagem previa usa
         // um canvas separado, que pode estar saudavel enquanto este nao esta.
-        const ctxTextureSize = (
-          viewer.scene as unknown as {
-            context?: { maximumTextureSize?: number };
-          }
-        ).context?.maximumTextureSize;
-        if (ctxTextureSize !== undefined && ctxTextureSize <= 0) {
+        // Perguntamos ao proprio WebGL em vez de a alguma propriedade do
+        // Cesium: `getContext` sobre um canvas que ja tem contexto devolve o
+        // mesmo contexto, entao este e literalmente o valor que o Cesium leu.
+        // (Nao use `scene.context.maximumTextureSize`: nao existe. O Cesium
+        // guarda o limite no estatico `ContextLimits`, e um acesso a
+        // propriedade inexistente da `undefined` — uma guarda que nunca
+        // dispara e parece funcionar.)
+        const gl =
+          viewer.scene.canvas.getContext("webgl2") ??
+          viewer.scene.canvas.getContext("webgl");
+        const ctxTextureSize = gl?.getParameter(gl.MAX_TEXTURE_SIZE) as
+          | number
+          | undefined;
+        if (typeof ctxTextureSize === "number" && ctxTextureSize <= 0) {
           setError(
             "O contexto WebGL do globo foi criado sem capacidade de textura " +
               "(MAX_TEXTURE_SIZE = 0). Recarregue a página; se persistir, " +
               "verifique a aceleração de hardware do navegador.",
           );
           setStatus("error");
+          // Este viewer nao tem como desenhar nada. Destrui-lo devolve o
+          // contexto WebGL ao navegador em vez de deixa-lo ocupando uma das
+          // ~16 vagas simultaneas ate a proxima recarga da pagina.
+          viewer.destroy();
+          viewerRef.current = null;
           return;
         }
 
@@ -209,11 +218,20 @@ export function Globe({
         // Falha ao buscar tiles da imagem de satelite. Nao impede o resto de
         // funcionar, mas precisa ser dita — e a diferenca entre "a Terra esta
         // preta porque a fonte falhou" e "esta preta e ninguem sabe por que".
-        let tileErrors = 0;
+        // Um tile que falha sozinho nao merece aviso nenhum: acontece o tempo
+        // todo e o Cesium quase sempre se recupera. O que merece aviso e a
+        // falha *sustentada*. O `timesRetried` do TileProviderError serve
+        // exatamente para isso — o Cesium o incrementa a cada falha
+        // consecutiva e o zera assim que um tile carrega. Exigir varias
+        // seguidas e o que separa "a rede tossiu" de "a fonte caiu".
+        const SUSTAINED_TILE_FAILURES = 3;
+        let warnedOnce = false;
         imageryProvider.errorEvent.addEventListener((e) => {
-          tileErrors++;
-          if (tileErrors === 1) {
+          if (!warnedOnce) {
+            warnedOnce = true;
             console.warn("Falha ao carregar tile de imagem de satelite:", e);
+          }
+          if (e.timesRetried >= SUSTAINED_TILE_FAILURES) {
             setImageryWarning(
               "A imagem de satélite não carregou. O globo funciona, mas sem " +
                 "textura de superfície.",
