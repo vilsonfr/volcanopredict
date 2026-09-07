@@ -232,6 +232,51 @@ func TestDataSources_EnablingWithoutLicenseRejected(t *testing.T) {
 	}
 }
 
+// TestDataSources_NoSeededSourceEnabledWithoutLicense is task 5.2's
+// explicit verification: after migration 010 populates GVP's license and
+// enables it, every other source seeded by 003 must remain disabled
+// because their licenses are still undetermined.
+func TestDataSources_NoSeededSourceEnabledWithoutLicense(t *testing.T) {
+	tdb := dbtest.Start(t)
+	pool := mustPool(t, tdb.ConnString)
+	ctx := context.Background()
+
+	rows, err := pool.Query(ctx, `
+		SELECT name, enabled, COALESCE(license, '')
+		FROM data_sources
+		WHERE enabled AND (license IS NULL OR license = '')
+	`)
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	defer rows.Close()
+
+	var offenders []string
+	for rows.Next() {
+		var name, license string
+		var enabled bool
+		if err := rows.Scan(&name, &enabled, &license); err != nil {
+			t.Fatalf("scan failed: %v", err)
+		}
+		offenders = append(offenders, name)
+	}
+	if len(offenders) != 0 {
+		t.Fatalf("found source(s) enabled without a license: %v", offenders)
+	}
+
+	var gvpEnabled bool
+	var gvpLicense string
+	err = pool.QueryRow(ctx, `
+		SELECT enabled, COALESCE(license, '') FROM data_sources WHERE name = 'Smithsonian Global Volcanism Program'
+	`).Scan(&gvpEnabled, &gvpLicense)
+	if err != nil {
+		t.Fatalf("query GVP row: %v", err)
+	}
+	if !gvpEnabled || gvpLicense == "" {
+		t.Fatalf("expected migration 010 to have enabled GVP with a license, got enabled=%v license=%q", gvpEnabled, gvpLicense)
+	}
+}
+
 func TestDataSources_UpdatedAtChangesOnUpdate(t *testing.T) {
 	tdb := dbtest.Start(t)
 	pool := mustPool(t, tdb.ConnString)

@@ -1,0 +1,5 @@
+Volcano Number,Volcano Name,Country,Latitude,Longitude,Elevation (m),Status
+FIXTURE-0001,Testonia Peak,Testlandia,-6.1,105.4,741,Historical
+FIXTURE-0002,Synthetic Cone,Testlandia,35.36,138.73,3776,Holocene
+FIXTURE-0003,Fixture Caldera,Fictionia,200.0,29.2,340,Historical
+FIXTURE-0004,Placeholder Dome,Fictionia,19.02,-98.62,,Historical
