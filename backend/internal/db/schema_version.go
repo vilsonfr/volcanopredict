@@ -6,4 +6,4 @@ package db
 // against columns that do not exist yet.
 //
 // Keep this in step with the highest-numbered file in migrations/.
-const ExpectedSchemaVersion int64 = 10
+const ExpectedSchemaVersion int64 = 15

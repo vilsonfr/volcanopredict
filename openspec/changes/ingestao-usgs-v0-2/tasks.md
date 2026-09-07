@@ -22,7 +22,7 @@
 
 - [x] 4.1 Implementar o parser do GeoJSON do USGS extraindo identificador, instante, coordenadas, profundidade, magnitude, tipo de magnitude, status e indicadores da solução; verificar com testes sobre a fixture real e sobre resposta deliberadamente malformada, afirmando que a malformada falha nomeando a etapa de parse
 - [x] 4.2 Fazer o parser distinguir campo ausente de valor zero para magnitude e profundidade; verificar com teste sobre evento real sem magnitude que o valor persistido é ausente, e não zero
-- [ ] 4.3 Implementar a validação de registro individual — coordenada em faixa válida, instante presente e interpretável, identificador não vazio — rejeitando o registro isolado e prosseguindo com os demais; verificar com teste que um lote com um registro inválido persiste os válidos e relata a contagem de rejeitados
+- [x] 4.3 Implementar a validação de registro individual — coordenada em faixa válida, instante presente e interpretável, identificador não vazio — rejeitando o registro isolado e prosseguindo com os demais; verificar com teste que um lote com um registro inválido persiste os válidos e relata a contagem de rejeitados
 - [x] 4.4 Implementar a normalização: timestamps em UTC, coordenadas em SRID 4326, profundidade em quilômetros com unidade explícita, identificador da fonte preservado sem reescrita; verificar com teste que compara o registro normalizado com o dado cru correspondente campo a campo
 - [x] 4.5 Gravar a versão do parser em cada registro e fazê-la mudar quando a extração mudar; verificar com teste que registros produzidos por versões diferentes são distinguíveis por consulta
 
@@ -30,31 +30,31 @@
 
 - [x] 5.1 Implementar em `internal/dataquality` os estados (`valid`, `suspect`, `duplicate`, `outlier`, `corrupted`, `delayed`) sem zero-value útil, de modo que esquecer de avaliar seja erro e não `valid` implícito; verificar com teste que persistir sem estado avaliado é rejeitado
 - [x] 5.2 Implementar as verificações nomeadas de valor impossível, timestamp inválido, duplicata e chegada tardia, cada uma gravando no motivo o nome estável da regra que a produziu; verificar com testes um caso por regra, afirmando o estado **e** o nome da regra no motivo
-- [ ] 5.3 Garantir que registro que falhou verificação é persistido marcado, nunca descartado; verificar com teste que um lote com registro implausível persiste esse registro com estado não-`valid` e o mantém recuperável
-- [ ] 5.4 Verificar com teste que reavaliar não altera versão anterior: revisão que corrige valor implausível gera versão `valid` e a consulta as-of anterior à revisão continua devolvendo `suspect`
+- [x] 5.3 Garantir que registro que falhou verificação é persistido marcado, nunca descartado; verificar com teste que um lote com registro implausível persiste esse registro com estado não-`valid` e o mantém recuperável
+- [x] 5.4 Verificar com teste que reavaliar não altera versão anterior: revisão que corrige valor implausível gera versão `valid` e a consulta as-of anterior à revisão continua devolvendo `suspect`
 
 ## 6. Persistência e leitura temporal
 
 - [x] 6.1 Implementar `internal/earthquake` como único lugar autorizado a escrever predicado temporal sobre `earthquakes`, com leitura corrente e as-of, `Provenance` sem zero-value útil e as-of futuro rejeitado; verificar com testes espelhando os de `internal/observation`, inclusive o de que `ingested_at` informado pelo chamador é ignorado
 - [x] 6.2 Implementar a escrita com deduplicação por comparação de conteúdo normalizado, não por confiança no `updated` da fonte; verificar com testes que reingerir a mesma resposta relata zero inserções e zero atualizações, e que payload idêntico com `updated` novo **não** cria versão
-- [ ] 6.3 Verificar com teste, usando a fixture do mesmo evento antes e depois da revisão real do USGS, que a revisão cria versão nova, que a leitura corrente devolve só a nova, e que a as-of anterior devolve a magnitude antiga — o teste que a V0.1 não teve como escrever
+- [x] 6.3 Verificar com teste, usando a fixture do mesmo evento antes e depois da revisão real do USGS, que a revisão cria versão nova, que a leitura corrente devolve só a nova, e que a as-of anterior devolve a magnitude antiga — o teste que a V0.1 não teve como escrever
 - [x] 6.4 Escrever teste de data leakage sobre sismos, percorrendo instantes as-of e afirmando que nenhum resultado tem `ingested_at` posterior ao instante consultado; verificar por sabotagem deliberada do predicado que o teste fica vermelho — a sabotagem tem de compilar
 - [x] 6.5 Implementar a consulta por proximidade e por magnitude mínima sobre PostGIS, com distância em cada item; verificar com teste de integração sobre coordenadas conhecidas e com teste de que latitude fora de faixa é rejeitada
 
 ## 7. Execuções, cobertura e lacunas
 
-- [ ] 7.1 Implementar o registro de execução de ingestão cobrindo início, fim, janela, resultado, contagens e erro, gravado inclusive quando a execução falha; verificar com teste que uma execução que falha no meio deixa registro de falha e **não** sobrescreve o da execução anterior
-- [ ] 7.2 Implementar a derivação da cobertura de ingestão a partir das execuções, respondendo se uma janela foi coberta, parcialmente coberta ou não coberta; verificar com teste que janela sem execução bem-sucedida é relatada como não coberta mesmo quando a tabela de sismos está vazia
-- [ ] 7.3 Implementar a identificação de lacunas — intervalo entre execuções bem-sucedidas maior que a cadência de coleta — com início e fim; verificar com teste que uma sequência com falha no meio produz exatamente a lacuna esperada
-- [ ] 7.4 Implementar a consulta de estado operacional por fonte (resultado e instante da última execução, última coleta bem-sucedida, há quanto tempo sem sucesso); verificar com testes que fonte habilitada nunca coletada é distinguível de fonte cuja última coleta falhou
+- [x] 7.1 Implementar o registro de execução de ingestão cobrindo início, fim, janela, resultado, contagens e erro, gravado inclusive quando a execução falha; verificar com teste que uma execução que falha no meio deixa registro de falha e **não** sobrescreve o da execução anterior
+- [x] 7.2 Implementar a derivação da cobertura de ingestão a partir das execuções, respondendo se uma janela foi coberta, parcialmente coberta ou não coberta; verificar com teste que janela sem execução bem-sucedida é relatada como não coberta mesmo quando a tabela de sismos está vazia
+- [x] 7.3 Implementar a identificação de lacunas — intervalo entre execuções bem-sucedidas maior que a cadência de coleta — com início e fim; verificar com teste que uma sequência com falha no meio produz exatamente a lacuna esperada
+- [x] 7.4 Implementar a consulta de estado operacional por fonte (resultado e instante da última execução, última coleta bem-sucedida, há quanto tempo sem sucesso); verificar com testes que fonte habilitada nunca coletada é distinguível de fonte cuja última coleta falhou
 
 ## 8. Execução manual e automática
 
-- [ ] 8.1 Expor o subcomando `ingest` com janela explícita e modo de backfill parametrizável, padrão de 90 dias; verificar executando contra a API real e conferindo a contagem ingerida contra o que a API relata para a mesma janela, com a saída colada no relatório da tarefa
-- [ ] 8.2 Implementar o agendador in-process disparando o ciclo em intervalo configurável, subindo **depois** do listener HTTP; verificar com teste que o serviço atende requisições normalmente com a fonte inacessível e que a falha fica registrada como execução
-- [ ] 8.3 Garantir a não-sobreposição por advisory lock no Postgres, e não por trava em memória; verificar com teste de integração que dois ciclos concorrentes para a mesma fonte resultam em um executando e outro registrando que não iniciou
-- [ ] 8.4 Implementar a âncora incremental na última execução bem-sucedida com sobreposição de segurança; verificar com teste que um evento revisado pela fonte no intervalo entre dois ciclos consecutivos não se perde
-- [ ] 8.5 Verificar que a ingestão é retomável: interromper uma execução no meio e rodar de novo deixa o banco consistente, sem versão duplicada e sem evento faltando na janela
+- [x] 8.1 Expor o subcomando `ingest` com janela explícita e modo de backfill parametrizável, padrão de 90 dias; verificar executando contra a API real e conferindo a contagem ingerida contra o que a API relata para a mesma janela, com a saída colada no relatório da tarefa
+- [x] 8.2 Implementar o agendador in-process disparando o ciclo em intervalo configurável, subindo **depois** do listener HTTP; verificar com teste que o serviço atende requisições normalmente com a fonte inacessível e que a falha fica registrada como execução
+- [x] 8.3 Garantir a não-sobreposição por advisory lock no Postgres, e não por trava em memória; verificar com teste de integração que dois ciclos concorrentes para a mesma fonte resultam em um executando e outro registrando que não iniciou
+- [x] 8.4 Implementar a âncora incremental na última execução bem-sucedida com sobreposição de segurança; verificar com teste que um evento revisado pela fonte no intervalo entre dois ciclos consecutivos não se perde
+- [x] 8.5 Verificar que a ingestão é retomável: interromper uma execução no meio e rodar de novo deixa o banco consistente, sem versão duplicada e sem evento faltando na janela
 
 ## 9. API
 

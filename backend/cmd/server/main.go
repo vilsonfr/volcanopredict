@@ -14,8 +14,13 @@ import (
 func main() {
 	// Subcomandos precedem o servidor: importar o catalogo e um ato
 	// deliberado, nao um passo de inicializacao (design.md D4).
-	if len(os.Args) > 1 && os.Args[1] == "import-catalog" {
-		os.Exit(runImportCatalog(os.Args[2:]))
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "import-catalog":
+			os.Exit(runImportCatalog(os.Args[2:]))
+		case "ingest":
+			os.Exit(runIngest(os.Args[2:]))
+		}
 	}
 
 	cfg, err := config.Load()
@@ -56,6 +61,15 @@ func main() {
 
 	addr := cfg.HTTPAddr
 	srv := &http.Server{Addr: addr, Handler: httpapi.WithObservability(withCORS(mux))}
+
+	// Background ingestion starts only AFTER the listener is up, and its
+	// failures never reach this goroutine (design.md D8). External data is
+	// optional for answering a request; the database is not. A source being
+	// down must not stop the service from serving what it already has.
+	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
+	defer stopScheduler()
+	startIngestionScheduler(schedulerCtx, pool, cfg)
+
 	log.Printf("VolcanoPredict backend listening on %s", addr)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
