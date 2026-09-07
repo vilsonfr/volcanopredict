@@ -58,8 +58,14 @@ Duas tentativas de contornar isso e por que não serviram:
    5.2 mb, e `ak`, com 5.0 ml) — soluções concorrentes, não uma correção
    sucessiva da mesma solução. Rotular como revisão seria falsear.
 2. Fotografar eventos recentes e reconsultar em ciclos, esperando pegar uma
-   promoção `automatic → reviewed` ao vivo. Rodou durante esta sessão sem
-   capturar nenhuma.
+   promoção `automatic → reviewed` ao vivo. Rodou por **24 ciclos de 2
+   minutos** (cerca de 50 minutos) em 07/09/2026, observando ~30 eventos por
+   ciclo, e não capturou nenhuma revisão.
+
+O sistema **em operação**, por outro lado, já lidou com revisão real: a
+tabela `earthquakes` no banco de desenvolvimento tem eventos ingeridos por
+uma janela manual e reconferidos por ciclo incremental. Isso mitiga, mas não
+substitui, uma fixture capturada.
 
 Os valores usados nos testes construídos são, ainda assim, a forma que o
 USGS de fato publica: magnitude e tipo mudando juntos (5.2 mb → 5.0 ml),

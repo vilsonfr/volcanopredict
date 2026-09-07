@@ -23,11 +23,11 @@ lacunas estão declaradas, não reclassificadas.
 
 ## 2. Testes
 
-**165 funções de teste**, contra 68 no fim da V0.1.
+**171 funções de teste**, contra 68 no fim da V0.1.
 
 ```
-dataquality 10 · earthquake 17 · httpapi 27 · ingestion 15 · usgs 29
-db 26 · source 9 · observation 9 · gvp 12 · config 7 · volcano 4
+usgs 31 · httpapi 27 · db 26 · earthquake 21 · ingestion 15
+gvp 12 · dataquality 10 · source 9 · observation 9 · config 7 · volcano 4
 ```
 
 Suíte completa verde nesta verificação, sem cache (`-count=1`):
@@ -160,6 +160,34 @@ Registrado aqui porque é o achado mais útil desta fase.
 
 Nenhum dos dois aparecia em teste nenhum. Ambos apareceram em menos de dez
 minutos de uso real, e ambos agora têm teste próprio.
+
+## O que o code review pegou e nem os testes nem a execução real pegaram
+
+Oito defeitos, corrigidos em `ec18310`. Os quatro que importam:
+
+1. **Truncagem silenciosa da paginação.** `FetchPages` encerrava a busca pelo
+   número de eventos *extraídos*, mas o parser exclui os rejeitados. Um único
+   registro ilegível numa página cheia cortava a janela inteira — e a
+   execução ainda relatava sucesso e cobertura completa. Perda de dado
+   reportada como êxito é o pior formato possível de perda de dado.
+
+2. **Filtros antes da escolha da versão.** Todos os predicados rodavam dentro
+   do `DISTINCT ON`, que então escolhia a versão mais recente *entre as que
+   casam com o filtro*. Uma versão superada respondia como conhecimento
+   corrente: um M5.2 revisado para M4.1 continuava aparecendo em
+   `min_magnitude=5`. Agora só predicados de identidade rodam antes.
+
+3. **O subcomando não pegava a trava do agendador.** Um backfill manual
+   junto do ciclo automático teria dois processos lendo a versão corrente e
+   inserindo — o mesmo defeito das revisões falsas, por outro caminho.
+
+4. **Erro de banco virando afirmação sobre o mundo.** Uma falha ao resolver a
+   fonte devolvia `coverage.kind = "none"`, ou seja, "esta janela não foi
+   coletada" — transformando um problema interno numa afirmação factual, que
+   é exatamente o que essa rota existe para evitar.
+
+Os três achados desta fase — dois na execução real, um no review — têm o
+mesmo formato: **o sistema afirmando com confiança algo que não mediu.**
 
 ## Conclusão
 
