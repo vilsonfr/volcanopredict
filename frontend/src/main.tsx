@@ -1,10 +1,12 @@
 import { StrictMode, useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Globe } from "./globe/Globe";
+import { AboutModal } from "./ui/AboutModal";
 import "./style.css";
 
 function App() {
   const [hasRealTerrain, setHasRealTerrain] = useState<boolean | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const onTerrainResolved = useCallback(
     (v: boolean) => setHasRealTerrain(v),
     [],
@@ -14,7 +16,16 @@ function App() {
     <main>
       <header>
         <h1>🌋 VolcanoPredict</h1>
-        <span>V0.1 • pesquisa aberta</span>
+        <div className="header__right">
+          <span>V0.1 • pesquisa aberta</span>
+          <button
+            type="button"
+            className="about__trigger"
+            onClick={() => setAboutOpen(true)}
+          >
+            Sobre
+          </button>
+        </div>
       </header>
 
       <section className="stage">
@@ -59,6 +70,8 @@ function App() {
         Score experimental de risco ≠ previsão determinística. Sempre consulte
         autoridades oficiais.
       </footer>
+
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </main>
   );
 }

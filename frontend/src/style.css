@@ -153,3 +153,135 @@ footer {
   font-size: 0.78rem;
   border-top: 1px solid var(--line);
 }
+
+/* --- Cabeçalho: ação "Sobre" ------------------------------------------- */
+
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.about__trigger {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.about__trigger:hover {
+  border-color: #33506f;
+  background: #0f1a2a;
+}
+
+.about__trigger:focus-visible {
+  outline: 2px solid #4d8fd6;
+  outline-offset: 2px;
+}
+
+/* --- Modal "Sobre" ----------------------------------------------------- */
+
+.about {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(78vh, 720px);
+  overflow-y: auto;
+  background: #0c1420;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px 26px 28px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.about::backdrop {
+  background: #02060bcc;
+  backdrop-filter: blur(3px);
+}
+
+.about__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.about h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.about h3 {
+  margin: 22px 0 8px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.about p {
+  margin: 12px 0 0;
+  color: #c8d5e6;
+}
+
+.about__warning {
+  border-left: 2px solid #6b4a2f;
+  background: #1a1208;
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+  color: #e6d6bf;
+  font-size: 0.85rem;
+}
+
+.about__close {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.about__close:hover {
+  color: var(--text);
+}
+
+.about__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 18px;
+  margin: 20px 0 0;
+  font-size: 0.85rem;
+}
+
+.about__meta dt {
+  color: var(--muted);
+}
+
+.about__meta dd {
+  margin: 0;
+}
+
+.about a {
+  color: #79b3ec;
+}
+
+.about__sources {
+  margin: 0;
+  padding-left: 18px;
+  color: #c8d5e6;
+  font-size: 0.82rem;
+}
+
+.about__sources li + li {
+  margin-top: 6px;
+}
