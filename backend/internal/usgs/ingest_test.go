@@ -623,3 +623,53 @@ func TestIngestIncremental_StillMarksGenuineLateArrivals(t *testing.T) {
 		t.Fatalf("the reason must name the late-arrival rule, got %q", reason)
 	}
 }
+
+// The most expensive defect this change produced, found by running the
+// real thing: a manual window ingested 642 events as `valid`, and the very
+// next routine incremental cycle re-read the same unchanged events, judged
+// them `delayed` (they were days old by then), and appended a version for
+// each — 130 fake revisions of earthquakes that had not changed at all.
+//
+// The bitemporal history is the thing this project exists to keep honest.
+// Polluting it with revisions the source never made is the worst failure
+// available here, so this test pins it directly.
+func TestIngest_CollectionCircumstanceDoesNotFakeARevision(t *testing.T) {
+	tdb := dbtest.Start(t)
+	pool := mustPool(t, tdb.ConnString)
+	srcID := usgsSourceID(t, pool)
+	ctx := context.Background()
+
+	// Old enough that an incremental cycle would call it a late arrival.
+	old := recentMs(5 * 24 * time.Hour)
+	body := collection(feature("us-nochange", old, "5.1", "mb", "reviewed", 35))
+	srv, _ := serveBodies(t, body, body)
+	ing := ingesterFor(t, srv, pool, srcID)
+	now := time.Now().UTC()
+
+	// A manual window: no late-arrival check, so the record lands valid.
+	if _, err := ing.IngestWindow(ctx, ingestion.ModeManual, now.Add(-7*24*time.Hour), now); err != nil {
+		t.Fatalf("manual ingestion: %v", err)
+	}
+	time.Sleep(10 * time.Millisecond)
+
+	// The routine cycle re-reads the very same, unchanged event.
+	rep, err := ing.IngestIncremental(ctx, time.Hour)
+	if err != nil {
+		t.Fatalf("incremental cycle: %v", err)
+	}
+	if rep.Counts.Updated != 0 {
+		t.Fatalf("re-reading an unchanged event must not be recorded as a revision, got %+v", rep.Counts)
+	}
+	if rep.Counts.Unchanged != 1 {
+		t.Fatalf("expected the event reported unchanged, got %+v", rep.Counts)
+	}
+
+	var versions int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM earthquakes WHERE external_id = 'us-nochange'`).Scan(&versions); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if versions != 1 {
+		t.Fatalf("the history must carry one version of an unrevised event, got %d", versions)
+	}
+}

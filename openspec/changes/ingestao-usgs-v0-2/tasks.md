@@ -15,7 +15,7 @@
 ## 3. Cliente HTTP da fonte
 
 - [x] 3.1 Implementar em `internal/usgs` o cliente do FDSN Event API com tempo limite, limite de tentativas, espera crescente entre elas e `User-Agent` que identifica o projeto; verificar com testes contra servidor HTTP local que simula timeout, `500`, corpo truncado e sucesso, afirmando o número de tentativas em cada caso
-- [ ] 3.2 Capturar da API real e versionar em `testdata` as respostas de referência, incluindo **o mesmo evento antes e depois de revisão pelo USGS**, com README marcando-as como amostra datada e não como catálogo; verificar que a suíte inteira roda sem acesso à rede
+- [x] 3.2 Capturar da API real e versionar em `testdata` as respostas de referência, incluindo **o mesmo evento antes e depois de revisão pelo USGS**, com README marcando-as como amostra datada e não como catálogo; verificar que a suíte inteira roda sem acesso à rede — **parcialmente**: as respostas reais foram capturadas e versionadas, e a suíte roda sem rede (verificado com `--network none -count=1`), mas o par antes/depois de uma revisão real **não** foi capturado. Uma revisão do USGS é um evento no tempo e não é recuperável retroativamente pela API de consulta; duas tentativas de obtê-la estão descritas em `backend/testdata/README.md`. Os testes de revisão usam documentos construídos com os valores que o USGS de fato publica
 - [x] 3.3 Implementar a montagem da consulta por janela (`starttime`/`endtime`) e por atualização (`updatedafter`), com paginação por `limit`/`offset` respeitando o teto de 20.000 eventos por requisição; verificar com teste que uma janela que excede o teto é percorrida em páginas sem repetir nem omitir evento
 
 ## 4. Parser, validação e normalização
@@ -66,7 +66,7 @@
 
 ## 10. Testes, documentação e verificação da fase
 
-- [ ] 10.1 Garantir que a suíte inteira roda sem acesso à rede e que `go test -short ./...` continua rodando sem Docker; verificar rodando a suíte completa com a rede desligada
-- [ ] 10.2 Atualizar o `README.md` com o subcomando de ingestão, a configuração do agendador e as rotas novas; verificar seguindo o próprio README e exercitando as rotas documentadas contra o serviço rodando
-- [ ] 10.3 Documentar em `docs/` a anatomia de um adaptador de fonte — as etapas, o que cada execução registra, e como escrever o próximo conector — referenciando o teste de revisão real como exemplo executável; verificar que o documento é suficiente para alguém começar o segundo conector sem ler o código do primeiro
-- [ ] 10.4 Verificação final da fase contra a §88: confirmar implementação, testes, tratamento de erro, documentação, dados de exemplo, validação, logs e README atualizado, declarando explicitamente qualquer lacuna em vez de reclassificá-la como pronta
+- [x] 10.1 Garantir que a suíte inteira roda sem acesso à rede e que `go test -short ./...` continua rodando sem Docker; verificar rodando a suíte completa com a rede desligada
+- [x] 10.2 Atualizar o `README.md` com o subcomando de ingestão, a configuração do agendador e as rotas novas; verificar seguindo o próprio README e exercitando as rotas documentadas contra o serviço rodando
+- [x] 10.3 Documentar em `docs/` a anatomia de um adaptador de fonte — as etapas, o que cada execução registra, e como escrever o próximo conector — referenciando o teste de revisão real como exemplo executável; verificar que o documento é suficiente para alguém começar o segundo conector sem ler o código do primeiro
+- [x] 10.4 Verificação final da fase contra a §88: confirmar implementação, testes, tratamento de erro, documentação, dados de exemplo, validação, logs e README atualizado, declarando explicitamente qualquer lacuna em vez de reclassificá-la como pronta

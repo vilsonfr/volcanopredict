@@ -157,12 +157,28 @@ func insert(ctx context.Context, q Querier, n New) (Earthquake, error) {
 //
 //   - source_updated_at: the source bumps it without changing anything.
 //     Comparing it is precisely the mistake design.md D3 rules out.
+//
 //   - source_version and raw: the service version and the exact bytes can
 //     change while every measured value stays identical. A reformatted
 //     payload is not a revision.
+//
 //   - parser_version: a parser change that produces identical values
 //     produced no new knowledge. A parser change that produces different
 //     values already shows up in the fields below.
+//
+//   - quality_state and quality_reason: the verdict is DERIVED from the
+//     content plus the circumstances of the collection, and the
+//     circumstances are not news about the earthquake. Comparing them cost
+//     130 fake revisions in the first real incremental cycle: events
+//     collected by an explicit window came in `valid`, and the next
+//     routine cycle re-read the same unchanged events and judged them
+//     `delayed` — because they were now days old — appending a version
+//     each. Nothing about the earthquakes had changed.
+//
+//     A genuine quality change never hides behind this: quality is a
+//     function of the content, so an implausible magnitude becoming
+//     plausible changes the magnitude too, which IS compared, and the new
+//     version carries the fresh verdict.
 func sameContent(cur Earthquake, n New) bool {
 	// Truncated to microseconds because that is the resolution the column
 	// stores: a Go instant carrying nanoseconds comes back rounded, and
@@ -179,9 +195,7 @@ func sameContent(cur Earthquake, n New) bool {
 		sameFloat(cur.AzimuthalGap, n.AzimuthalGap) &&
 		sameInt(cur.StationCount, n.StationCount) &&
 		sameFloat(cur.MinDistanceDeg, n.MinDistanceDeg) &&
-		cur.IsSynthetic == n.IsSynthetic &&
-		cur.QualityState == n.Quality.State &&
-		cur.QualityReason == n.Quality.Reason()
+		cur.IsSynthetic == n.IsSynthetic
 }
 
 // sameInstant compares two instants at the resolution the database keeps.
