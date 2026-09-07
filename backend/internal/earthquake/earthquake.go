@@ -143,8 +143,15 @@ type Query struct {
 	NearLongitude *float64
 	RadiusKm      *float64
 
-	AfterID int64
-	Limit   int
+	// AfterID resumes a keyset scan: only rows ordered after this id are
+	// returned. For distance-ordered queries AfterDistanceKm must be set
+	// too, because the keyset must cover exactly the tuple the ORDER BY
+	// uses — a cursor on id alone against an order on (distance, id) both
+	// repeats and skips rows.
+	AfterID         int64
+	AfterDistanceKm *float64
+
+	Limit int
 }
 
 const selectColumns = `
@@ -245,14 +252,19 @@ func List(ctx context.Context, q Querier, query Query) ([]Earthquake, error) {
 		) current_versions
 	`, selectColumns, distanceExpr, whereSQL)
 
-	// Keyset pagination needs a total order; id breaks every tie.
-	if query.AfterID > 0 {
-		sql += fmt.Sprintf(" WHERE id > $%d", add(query.AfterID))
-	}
+	// Keyset pagination needs a total order, and the cursor must be over
+	// exactly the tuple the ORDER BY uses; id breaks every tie.
 	if query.NearLatitude != nil {
+		if query.AfterDistanceKm != nil {
+			sql += fmt.Sprintf(" WHERE (distance_km, id) > ($%d, $%d)",
+				add(*query.AfterDistanceKm), add(query.AfterID))
+		}
 		sql += " ORDER BY distance_km ASC, id ASC"
 	} else {
-		sql += " ORDER BY occurred_at DESC, id ASC"
+		if query.AfterID > 0 {
+			sql += fmt.Sprintf(" WHERE id > $%d", add(query.AfterID))
+		}
+		sql += " ORDER BY id ASC"
 	}
 	if query.Limit > 0 {
 		sql += fmt.Sprintf(" LIMIT $%d", add(query.Limit))

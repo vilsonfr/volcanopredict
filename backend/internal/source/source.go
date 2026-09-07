@@ -29,6 +29,14 @@ type Source struct {
 	Enabled     bool
 	License     string
 	Attribution string
+	// CollectionCadence is how often THIS system queries the source, as
+	// opposed to update_cadence, which is how often the source publishes.
+	// Empty means the source is not collected automatically at all — the
+	// GVP catalog, for instance, arrives by swapping a versioned snapshot.
+	CollectionCadence string
+	// BlockedReason, when set, is why the source may not be collected even
+	// though its license would allow it: the source itself forbids it.
+	BlockedReason string
 }
 
 // ErrNotFound is returned when a source name has no matching row in
@@ -47,10 +55,12 @@ func GetByName(ctx context.Context, q Querier, name string) (Source, error) {
 	var s Source
 	err := q.QueryRow(ctx, `
 		SELECT id, name, COALESCE(base_url, ''), category, enabled,
-		       COALESCE(license, ''), COALESCE(attribution, '')
+		       COALESCE(license, ''), COALESCE(attribution, ''),
+		       COALESCE(collection_cadence, ''), COALESCE(blocked_reason, '')
 		FROM data_sources
 		WHERE name = $1
-	`, name).Scan(&s.ID, &s.Name, &s.BaseURL, &s.Category, &s.Enabled, &s.License, &s.Attribution)
+	`, name).Scan(&s.ID, &s.Name, &s.BaseURL, &s.Category, &s.Enabled, &s.License, &s.Attribution,
+		&s.CollectionCadence, &s.BlockedReason)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Source{}, fmt.Errorf("%w: %q", ErrNotFound, name)
 	}
@@ -84,7 +94,8 @@ func GetEnabledByName(ctx context.Context, q Querier, name string) (Source, erro
 func List(ctx context.Context, q Querier) ([]Source, error) {
 	rows, err := q.Query(ctx, `
 		SELECT id, name, coalesce(base_url, ''), category, enabled,
-		       coalesce(license, ''), coalesce(attribution, '')
+		       coalesce(license, ''), coalesce(attribution, ''),
+		       coalesce(collection_cadence, ''), coalesce(blocked_reason, '')
 		FROM data_sources
 		ORDER BY name`)
 	if err != nil {
@@ -96,7 +107,8 @@ func List(ctx context.Context, q Querier) ([]Source, error) {
 	for rows.Next() {
 		var s Source
 		if err := rows.Scan(&s.ID, &s.Name, &s.BaseURL, &s.Category,
-			&s.Enabled, &s.License, &s.Attribution); err != nil {
+			&s.Enabled, &s.License, &s.Attribution,
+			&s.CollectionCadence, &s.BlockedReason); err != nil {
 			return nil, fmt.Errorf("source: list: scan: %w", err)
 		}
 		out = append(out, s)

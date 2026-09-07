@@ -165,3 +165,43 @@ func TestMigration012_EnablesOnlyTheReviewedSources(t *testing.T) {
 		t.Fatalf("enabled sources drifted.\n got: %v\nwant: %v", enabled, want)
 	}
 }
+
+// Migration 012 records two different cadences for the USGS row, and they
+// must not be confused: how often the SOURCE publishes is not how often WE
+// collect.
+func TestSource_CarriesCollectionCadenceDistinctFromPublicationCadence(t *testing.T) {
+	db := dbtest.Start(t)
+	pool := mustPool(t, db.ConnString)
+	ctx := context.Background()
+
+	s, err := source.GetEnabledByName(ctx, pool, "USGS Earthquake Hazards Program")
+	if err != nil {
+		t.Fatalf("GetEnabledByName: %v", err)
+	}
+	if s.CollectionCadence == "" {
+		t.Fatal("a source collected automatically must declare how often this system queries it")
+	}
+	if s.BlockedReason != "" {
+		t.Fatalf("the USGS source is not blocked, got %q", s.BlockedReason)
+	}
+
+	var publication string
+	if err := pool.QueryRow(ctx, `SELECT coalesce(update_cadence, '') FROM data_sources WHERE id = $1`, s.ID).Scan(&publication); err != nil {
+		t.Fatalf("update_cadence: %v", err)
+	}
+	if publication == "" {
+		t.Fatal("the publication cadence must also be recorded")
+	}
+	if publication == s.CollectionCadence {
+		t.Fatal("publication and collection cadence must be distinguishable, not the same string")
+	}
+
+	// The GVP catalog is enabled but not collected on a cadence.
+	gvp, err := source.GetEnabledByName(ctx, pool, "Smithsonian Global Volcanism Program")
+	if err != nil {
+		t.Fatalf("GVP: %v", err)
+	}
+	if gvp.CollectionCadence != "" {
+		t.Fatalf("the GVP snapshot is swapped by hand, not collected on a cadence, got %q", gvp.CollectionCadence)
+	}
+}

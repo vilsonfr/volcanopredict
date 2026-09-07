@@ -58,11 +58,11 @@
 
 ## 9. API
 
-- [ ] 9.1 Implementar `GET /api/v1/earthquakes` sob o envelope existente, com filtros de janela, as-of, proximidade, magnitude mínima, proveniência e qualidade; verificar com testes que percorrer a coleção inteira não repete nem omite, que janela invertida retorna `400` nomeando o parâmetro, e que proximidade meio-especificada retorna `400`
-- [ ] 9.2 Expor o estado de qualidade e o motivo em cada registro servido, com filtro por qualidade; verificar com testes que o filtro por `valid` não devolve registro de outro estado e que a composição de qualidade de um conjunto misto é observável na resposta
-- [ ] 9.3 Declarar a cobertura de ingestão nas respostas com janela de tempo, de modo que coleção vazia com cobertura completa seja distinguível de coleção vazia por falta de coleta; verificar com teste que exercita os dois casos e afirma que as respostas diferem
-- [ ] 9.4 Expor o estado operacional das fontes na API, sem vazar SQL, caminho de arquivo, credencial nem rastro de pilha; verificar com teste que a causa de uma falha de ingestão aparece descrita e higienizada
-- [ ] 9.5 Permitir chegar ao dado cru e à versão do parser de um registro ingerido; verificar com teste que o dado cru devolvido permite rederivar os campos normalizados daquele registro
+- [x] 9.1 Implementar `GET /api/v1/earthquakes` sob o envelope existente, com filtros de janela, as-of, proximidade, magnitude mínima, proveniência e qualidade; verificar com testes que percorrer a coleção inteira não repete nem omite, que janela invertida retorna `400` nomeando o parâmetro, e que proximidade meio-especificada retorna `400`
+- [x] 9.2 Expor o estado de qualidade e o motivo em cada registro servido, com filtro por qualidade; verificar com testes que o filtro por `valid` não devolve registro de outro estado e que a composição de qualidade de um conjunto misto é observável na resposta
+- [x] 9.3 Declarar a cobertura de ingestão nas respostas com janela de tempo, de modo que coleção vazia com cobertura completa seja distinguível de coleção vazia por falta de coleta; verificar com teste que exercita os dois casos e afirma que as respostas diferem
+- [x] 9.4 Expor o estado operacional das fontes na API, sem vazar SQL, caminho de arquivo, credencial nem rastro de pilha; verificar com teste que a causa de uma falha de ingestão aparece descrita e higienizada
+- [x] 9.5 Permitir chegar ao dado cru e à versão do parser de um registro ingerido; verificar com teste que o dado cru devolvido permite rederivar os campos normalizados daquele registro
 
 ## 10. Testes, documentação e verificação da fase
 

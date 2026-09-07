@@ -62,6 +62,8 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/volcanoes", s.handleListVolcanoes)
 	mux.HandleFunc("GET /api/v1/observations", s.handleListObservations)
 	mux.HandleFunc("GET /api/v1/sources", s.handleListSources)
+	mux.HandleFunc("GET /api/v1/earthquakes", s.handleListEarthquakes)
+	mux.HandleFunc("GET /api/v1/ingestion", s.handleIngestionStatus)
 
 	// Anything under /api that is not a known versioned route is a 404 in the
 	// standard error shape, never a response from some implicit version.

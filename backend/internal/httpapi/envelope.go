@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 )
 
 // Disclaimer is attached to every response carrying a derived value. It is set
@@ -33,6 +34,32 @@ type Meta struct {
 	Disclaimer string `json:"disclaimer,omitempty"`
 	// RequestID correlates this response with the server log.
 	RequestID string `json:"request_id,omitempty"`
+	// Quality is the count of each quality state present in this page, so a
+	// consumer can see at a glance that a set is of mixed quality instead of
+	// having to inspect every item.
+	Quality map[string]int `json:"quality,omitempty"`
+	// Coverage says how much of a requested time window was actually
+	// collected. It is what keeps an empty page from being read as "nothing
+	// happened" when it means "we never looked" (§74).
+	Coverage *CoverageDTO `json:"coverage,omitempty"`
+}
+
+// CoverageDTO reports ingestion coverage over a requested window.
+type CoverageDTO struct {
+	// Kind is complete, partial or none.
+	Kind string    `json:"kind"`
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+	// Gaps are the stretches that were never successfully collected.
+	Gaps []GapDTO `json:"gaps,omitempty"`
+	// Note spells out, in words, what the caller must not conclude.
+	Note string `json:"note,omitempty"`
+}
+
+// GapDTO is one uncollected stretch of a window.
+type GapDTO struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
 }
 
 // Attribution names an external source whose data appears in the response,
