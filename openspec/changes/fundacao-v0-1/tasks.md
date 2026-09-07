@@ -12,19 +12,19 @@
 
 ## 2. Configuração e conexão com o banco
 
-- [ ] 2.1 Implementar `internal/config` lendo e validando variáveis de ambiente, encerrando com código diferente de zero e mensagem que nomeia a variável faltante; verificar com teste de unidade para variável ausente, valor inválido e caso feliz
-- [ ] 2.2 Implementar `internal/db` com pool `pgx` e espera pelo banco até `DB_CONNECT_TIMEOUT`, registrando em log a espera; verificar com teste que simula banco indisponível e confirma saída não-zero com o host nomeado na mensagem
-- [ ] 2.3 Adicionar `goose` como biblioteca com migrações embutidas por `embed.FS`, aplicadas antes de abrir o listener HTTP, com advisory lock; verificar que subir duas vezes seguidas não reaplica migração e que falha de migração impede o servidor de servir tráfego
+- [x] 2.1 Implementar `internal/config` lendo e validando variáveis de ambiente, encerrando com código diferente de zero e mensagem que nomeia a variável faltante; verificar com teste de unidade para variável ausente, valor inválido e caso feliz
+- [x] 2.2 Implementar `internal/db` com pool `pgx` e espera pelo banco até `DB_CONNECT_TIMEOUT`, registrando em log a espera; verificar com teste que simula banco indisponível e confirma saída não-zero com o host nomeado na mensagem
+- [x] 2.3 Adicionar `goose` como biblioteca com migrações embutidas por `embed.FS`, aplicadas antes de abrir o listener HTTP, com advisory lock; verificar que subir duas vezes seguidas não reaplica migração e que falha de migração impede o servidor de servir tráfego
 
 ## 3. Schema bitemporal
 
-- [ ] 3.1 Escrever migração `003` criando a tabela de controle do goose e reconciliando o schema herdado do `docker-entrypoint-initdb.d` com `IF EXISTS`/`IF NOT EXISTS`; verificar que ela aplica com sucesso tanto sobre volume novo quanto sobre volume com o schema das migrações `001`/`002`
-- [ ] 3.2 Escrever migração recriando `observations` na forma bitemporal — `observed_at`, `ingested_at NOT NULL DEFAULT now()`, `is_synthetic BOOLEAN NOT NULL` sem default, `source_id` com chave estrangeira para `data_sources`, unicidade em `(chave natural, ingested_at)`; verificar com testes que `INSERT` omitindo `is_synthetic` falha, que `INSERT` sem `observed_at` falha, e que `source_id` inexistente é rejeitado
-- [ ] 3.3 Escrever migração recriando `earthquakes` na forma bitemporal com a mesma disciplina, usando o identificador da fonte como chave natural; verificar com teste que duas versões do mesmo sismo coexistem com `ingested_at` distintos
-- [ ] 3.4 Criar índices em `(chave natural, ingested_at DESC)` e em `observed_at` para ambas as tabelas; verificar com teste que inspeciona `EXPLAIN` de uma consulta as-of por janela e confirma uso de índice, sem varredura sequencial
-- [ ] 3.5 Adicionar `updated_at` e trigger de auditoria em `data_sources`, mais colunas `license`, `attribution`, `terms_url` e `update_cadence`; verificar com teste que habilitar fonte com `license` vazia é rejeitado
-- [ ] 3.6 Adicionar restrição impedindo remoção de fonte com dados associados; verificar com teste que `DELETE` de fonte referenciada falha e que desabilitar a mesma fonte funciona
-- [ ] 3.7 Adicionar `source_id`, `source_ref` e `absent_from_source_at` a `volcanoes`, com unicidade em `(source_id, source_ref)` e restrição de faixa válida em latitude e longitude; verificar com teste que latitude 91 é rejeitada e que o mesmo `source_ref` não pode ser inserido duas vezes para a mesma fonte
+- [x] 3.1 Escrever migração `003` criando a tabela de controle do goose e reconciliando o schema herdado do `docker-entrypoint-initdb.d` com `IF EXISTS`/`IF NOT EXISTS`; verificar que ela aplica com sucesso tanto sobre volume novo quanto sobre volume com o schema das migrações `001`/`002`
+- [x] 3.2 Escrever migração recriando `observations` na forma bitemporal — `observed_at`, `ingested_at NOT NULL DEFAULT now()`, `is_synthetic BOOLEAN NOT NULL` sem default, `source_id` com chave estrangeira para `data_sources`, unicidade em `(chave natural, ingested_at)`; verificar com testes que `INSERT` omitindo `is_synthetic` falha, que `INSERT` sem `observed_at` falha, e que `source_id` inexistente é rejeitado
+- [x] 3.3 Escrever migração recriando `earthquakes` na forma bitemporal com a mesma disciplina, usando o identificador da fonte como chave natural; verificar com teste que duas versões do mesmo sismo coexistem com `ingested_at` distintos
+- [x] 3.4 Criar índices em `(chave natural, ingested_at DESC)` e em `observed_at` para ambas as tabelas; verificar com teste que inspeciona `EXPLAIN` de uma consulta as-of por janela e confirma uso de índice, sem varredura sequencial
+- [x] 3.5 Adicionar `updated_at` e trigger de auditoria em `data_sources`, mais colunas `license`, `attribution`, `terms_url` e `update_cadence`; verificar com teste que habilitar fonte com `license` vazia é rejeitado
+- [x] 3.6 Adicionar restrição impedindo remoção de fonte com dados associados; verificar com teste que `DELETE` de fonte referenciada falha e que desabilitar a mesma fonte funciona
+- [x] 3.7 Adicionar `source_id`, `source_ref` e `absent_from_source_at` a `volcanoes`, com unicidade em `(source_id, source_ref)` e restrição de faixa válida em latitude e longitude; verificar com teste que latitude 91 é rejeitada e que o mesmo `source_ref` não pode ser inserido duas vezes para a mesma fonte
 
 ## 4. Leitura temporal
 
@@ -59,7 +59,7 @@
 
 ## 7. Testes, CI e documentação
 
-- [ ] 7.1 Configurar `testcontainers-go` com PostGIS efêmero e a convenção de `go test -short` pular integração; verificar que `go test -short ./...` roda sem Docker e que `go test ./...` sobe o container
+- [x] 7.1 Configurar `testcontainers-go` com PostGIS efêmero e a convenção de `go test -short` pular integração; verificar que `go test -short ./...` roda sem Docker e que `go test ./...` sobe o container
 - [ ] 7.2 Criar workflow do GitHub Actions rodando build, `go vet`, testes Go completos e build do frontend; verificar que o workflow passa verde na primeira execução
 - [ ] 7.3 Atualizar `README.md` com instruções reais de subida, execução do importador, execução dos testes e a ressalva científica; verificar seguindo o próprio README numa máquina limpa
 - [ ] 7.4 Atualizar `docs/DATA_SOURCES.md` com licença, atribuição, cadência e versão de snapshot por fonte; verificar que toda fonte habilitada no banco tem entrada correspondente no documento
