@@ -61,6 +61,23 @@ func runIngest(args []string) int {
 		return 1
 	}
 
+	// The same advisory lock the scheduler takes. Without it, a manual
+	// backfill run alongside the 15-minute scheduler has both processes
+	// reading the current version of an event and both inserting — two
+	// identical versions of an earthquake nobody revised. The scheduler
+	// holding the lock is not an error here: it means the work is already
+	// being done.
+	acquired, release, err := ingestion.TryLock(ctx, pool, usgs.SourceName)
+	if err != nil {
+		log.Printf("ingest: %v", err)
+		return 1
+	}
+	if !acquired {
+		log.Printf("ingest: another ingestion for %q is already running; nothing to do", usgs.SourceName)
+		return 0
+	}
+	defer release()
+
 	ing := usgs.NewIngester(usgs.NewClient(), pool, src.ID)
 	ing.PageSize = *pageSize
 
@@ -84,6 +101,14 @@ func runIngest(args []string) int {
 		}
 		if windowEnd.Before(windowStart) {
 			log.Printf("ingest: the window ends before it starts (%s..%s)", windowStart, windowEnd)
+			return 2
+		}
+		// A window ending in the future would be recorded as collected
+		// coverage over time that has not happened yet, and would push the
+		// next incremental anchor past now.
+		if now := time.Now().UTC(); windowEnd.After(now) {
+			log.Printf("ingest: -end is in the future (%s); a window cannot cover time that has not happened",
+				windowEnd.Format(time.RFC3339))
 			return 2
 		}
 		report, ingestErr = ing.IngestWindow(ctx, ingestion.ModeManual, windowStart.UTC(), windowEnd.UTC())

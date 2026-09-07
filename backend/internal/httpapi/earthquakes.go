@@ -327,9 +327,11 @@ func (s *Server) coverageFor(ctx context.Context, from, to time.Time, hasFrom, h
 	}
 
 	src, err := source.GetEnabledByName(ctx, s.DB, usgs.SourceName)
-	if err != nil {
-		// The source not being enabled is not an internal failure; it just
-		// means nothing was collected for this window.
+	switch {
+	case err == nil:
+	case errors.Is(err, source.ErrNotFound), errors.Is(err, source.ErrDisabled):
+		// The source not being registered or enabled is a real answer: no
+		// collection exists for this window.
 		return &CoverageDTO{
 			Kind: string(ingestion.CoverageNone),
 			From: start,
@@ -337,6 +339,12 @@ func (s *Server) coverageFor(ctx context.Context, from, to time.Time, hasFrom, h
 			Gaps: []GapDTO{{From: start, To: end}},
 			Note: coverageNote(ingestion.CoverageNone),
 		}, nil
+	default:
+		// Anything else — a database hiccup, a timeout — is NOT evidence
+		// that the window went uncollected. Claiming "none" here would turn
+		// an internal failure into an affirmative statement about the
+		// world, which is the one thing this endpoint exists to avoid.
+		return nil, err
 	}
 
 	cov, err := ingestion.CoverageFor(ctx, s.DB, src.ID, start, end)

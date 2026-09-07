@@ -125,6 +125,16 @@ func (i *Ingester) IngestIncremental(ctx context.Context, fallback time.Duration
 	switch {
 	case err == nil:
 		anchor = last.WindowEnd.Add(-SafetyOverlap)
+		// A window recorded with an end in the future — which a manual run
+		// with a bad -end can produce — would push the anchor past now and
+		// make every later cycle fail at Begin with an inverted window, and
+		// fail before there is any run row to explain why. Clamping keeps
+		// the loop recoverable.
+		if anchor.After(now) {
+			log.Printf("usgs: last successful run ends at %s, in the future; clamping the incremental anchor to now",
+				last.WindowEnd.Format(time.RFC3339))
+			anchor = now
+		}
 	case errors.Is(err, ingestion.ErrNoRuns):
 		log.Printf("usgs: no previous successful run; first incremental cycle covers the last %s", fallback)
 	default:
@@ -177,21 +187,16 @@ func (i *Ingester) ingest(ctx context.Context, mode ingestion.Mode, q Query, win
 func (i *Ingester) collect(ctx context.Context, q Query, opts dataquality.Options) (Report, error) {
 	var report Report
 
-	pages, err := i.Client.FetchPages(ctx, q, i.PageSize)
-	if err != nil {
-		return report, err
-	}
-
 	// Duplicate detection is scoped to one ingestion: the same event
 	// appearing twice across two runs is a revision question, not a
 	// duplicate one.
 	seen := map[string]bool{}
 	seenAt := i.clock()
 
-	for _, body := range pages {
+	err := i.Client.FetchPages(ctx, q, i.PageSize, func(body []byte, delivered int) error {
 		resp, recErrs, err := Parse(body)
 		if err != nil {
-			return report, err
+			return err
 		}
 		if resp.SourceVersion != "" {
 			report.SourceVersion = resp.SourceVersion
@@ -214,7 +219,7 @@ func (i *Ingester) collect(ctx context.Context, q Query, opts dataquality.Option
 					report.Counts.Rejected++
 					continue
 				}
-				return report, fmt.Errorf("usgs: persisting event %s failed: %w", ev.ID, err)
+				return fmt.Errorf("usgs: persisting event %s failed: %w", ev.ID, err)
 			}
 			switch outcome {
 			case earthquake.OutcomeInserted:
@@ -225,9 +230,10 @@ func (i *Ingester) collect(ctx context.Context, q Query, opts dataquality.Option
 				report.Counts.Unchanged++
 			}
 		}
-	}
+		return nil
+	})
 
-	return report, nil
+	return report, err
 }
 
 func (i *Ingester) persist(

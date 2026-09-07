@@ -405,3 +405,129 @@ func TestList_MinMagnitudeExcludesUnknownRatherThanAssumingZero(t *testing.T) {
 		t.Fatalf("expected only the M6 event, got %+v", got)
 	}
 }
+
+// --- filters must run AFTER the current version is chosen ---------------
+
+// The failure mode: with the filter inside the DISTINCT ON, the query picks
+// the latest version *among the rows that match*, so a superseded version
+// answers as if it were current knowledge. An M5.2 that the source later
+// revised down to M4.1 would still come back for min_magnitude=5, labelled
+// current.
+func TestList_SupersededVersionDoesNotAnswerAFilterTheCurrentOneFails(t *testing.T) {
+	tdb := dbtest.Start(t)
+	pool := mustPool(t, tdb.ConnString)
+	srcID := mustSource(t, pool, "eq-filter-after-version")
+	ctx := context.Background()
+	occurred := time.Now().UTC().Add(-2 * time.Hour)
+
+	n := earthquake.ForTest("us-downgraded", srcID, occurred, 1, 1)
+	n.Magnitude = f64(5.2)
+	mustSave(t, pool, n)
+	tick()
+	// The source revises it down: it is no longer an M5+ event.
+	n.Magnitude = f64(4.1)
+	mustSave(t, pool, n)
+
+	min := 5.0
+	got, err := earthquake.List(ctx, pool, earthquake.Query{
+		SourceID: &srcID, Provenance: earthquake.ProvenanceAll, MinMagnitude: &min,
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("the current version is M4.1 and must not match min_magnitude=5; got %d rows (magnitude %v)",
+			len(got), got[0].Magnitude)
+	}
+
+	// And it does come back without the filter, as the revised value.
+	all, err := earthquake.List(ctx, pool, earthquake.Query{
+		SourceID: &srcID, Provenance: earthquake.ProvenanceAll,
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(all) != 1 || all[0].Magnitude == nil || *all[0].Magnitude != 4.1 {
+		t.Fatalf("expected the single revised version, got %+v", all)
+	}
+}
+
+func TestList_SupersededQualityDoesNotAnswerAQualityFilter(t *testing.T) {
+	tdb := dbtest.Start(t)
+	pool := mustPool(t, tdb.ConnString)
+	srcID := mustSource(t, pool, "eq-quality-after-version")
+	ctx := context.Background()
+	occurred := time.Now().UTC().Add(-2 * time.Hour)
+
+	n := earthquake.ForTest("us-fixed", srcID, occurred, 1, 1)
+	n.Magnitude = f64(42)
+	n.Quality = dataquality.Verdict{State: dataquality.StateOutlier, Rules: []string{dataquality.RuleImpossibleValue}}
+	mustSave(t, pool, n)
+	tick()
+	n.Magnitude = f64(5.2)
+	n.Quality = dataquality.Verdict{State: dataquality.StateValid}
+	mustSave(t, pool, n)
+
+	got, err := earthquake.List(ctx, pool, earthquake.Query{
+		SourceID:      &srcID,
+		Provenance:    earthquake.ProvenanceAll,
+		QualityStates: []dataquality.State{dataquality.StateOutlier},
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("the current version is valid; the superseded outlier must not answer an outlier filter, got %d", len(got))
+	}
+}
+
+// The same trap on the geographic filter: a relocated event must be judged
+// by where it is now, not by where a superseded version put it.
+func TestList_SupersededLocationDoesNotAnswerAProximityQuery(t *testing.T) {
+	tdb := dbtest.Start(t)
+	pool := mustPool(t, tdb.ConnString)
+	srcID := mustSource(t, pool, "eq-geo-after-version")
+	ctx := context.Background()
+	occurred := time.Now().UTC().Add(-2 * time.Hour)
+
+	// First located near Krakatau, then relocated far away.
+	n := earthquake.ForTest("us-relocated", srcID, occurred, -6.15, 105.45)
+	mustSave(t, pool, n)
+	tick()
+	n.Latitude, n.Longitude = 35.0, -117.9
+	mustSave(t, pool, n)
+
+	lat, lon, radius := -6.102, 105.423, 200.0
+	got, err := earthquake.List(ctx, pool, earthquake.Query{
+		SourceID:      &srcID,
+		Provenance:    earthquake.ProvenanceAll,
+		NearLatitude:  &lat,
+		NearLongitude: &lon,
+		RadiusKm:      &radius,
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("the event was relocated out of the radius; the superseded location must not match, got %d", len(got))
+	}
+}
+
+// A distance-ordered page resumed with an id-only cursor would silently
+// restart the walk from the beginning.
+func TestList_ProximityRejectsAnIdOnlyCursor(t *testing.T) {
+	tdb := dbtest.Start(t)
+	pool := mustPool(t, tdb.ConnString)
+
+	lat, lon, radius := -6.1, 105.4, 100.0
+	_, err := earthquake.List(context.Background(), pool, earthquake.Query{
+		Provenance:    earthquake.ProvenanceAll,
+		NearLatitude:  &lat,
+		NearLongitude: &lon,
+		RadiusKm:      &radius,
+		AfterID:       42,
+	})
+	if err == nil {
+		t.Fatal("a distance-ordered page resumed on an id-only cursor must be an error, not a silent restart")
+	}
+}

@@ -14,7 +14,9 @@
 package usgs
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -223,7 +226,17 @@ func (c *Client) attempt(ctx context.Context, target string) ([]byte, bool, erro
 		// would get recorded as a quiet period.
 		return []byte(`{"type":"FeatureCollection","features":[]}`), false, nil
 	case resp.StatusCode == http.StatusBadRequest:
-		return nil, false, fmt.Errorf("usgs: source rejected the query (HTTP 400): %w", ErrTooManyEvents)
+		// The service answers 400 both for a query matching more events
+		// than it will serve and for a query it simply did not like.
+		// Reporting every 400 as the former would tell an operator to
+		// narrow a window that was never the problem, so the body decides.
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if bytes.Contains(bytes.ToLower(body), []byte("limit")) ||
+			bytes.Contains(bytes.ToLower(body), []byte("exceed")) ||
+			bytes.Contains(bytes.ToLower(body), []byte("too many")) {
+			return nil, false, fmt.Errorf("usgs: source rejected the query (HTTP 400): %w", ErrTooManyEvents)
+		}
+		return nil, false, fmt.Errorf("usgs: source rejected the query (HTTP 400): %s", firstLine(body))
 	case resp.StatusCode >= 500:
 		return nil, true, fmt.Errorf("usgs: source returned HTTP %d", resp.StatusCode)
 	default:
@@ -239,23 +252,23 @@ func (c *Client) attempt(ctx context.Context, target string) ([]byte, bool, erro
 	return body, false, nil
 }
 
-// FetchPages walks a window in pages and returns every page's raw body,
-// in order.
+// FetchPages walks a window in pages, handing each page's raw body to fn
+// as it arrives.
 //
 // Paging exists because the service refuses a query matching more than
-// MaxEventsPerRequest events outright (HTTP 400) rather than truncating
-// it. Truncation would be worse — it would look like success — but it
-// means a wide window has to be walked deliberately.
+// MaxEventsPerRequest events outright (HTTP 400) rather than truncating it.
+// Truncation would be worse — it would look like success — but it means a
+// wide window has to be walked deliberately.
 //
-// pageSize caps each request; it is clamped to MaxEventsPerRequest. The
-// walk stops on the first page that comes back short, which is how the
-// service signals the end.
-func (c *Client) FetchPages(ctx context.Context, q Query, pageSize int) ([][]byte, error) {
+// Pages are streamed rather than accumulated so a 90-day global backfill
+// does not hold the whole window in memory before anything is persisted.
+//
+// pageSize caps each request; it is clamped to MaxEventsPerRequest.
+func (c *Client) FetchPages(ctx context.Context, q Query, pageSize int, fn func(body []byte, delivered int) error) error {
 	if pageSize <= 0 || pageSize > MaxEventsPerRequest {
 		pageSize = MaxEventsPerRequest
 	}
 
-	var pages [][]byte
 	// The service's offset is 1-based.
 	offset := 1
 	for {
@@ -265,20 +278,57 @@ func (c *Client) FetchPages(ctx context.Context, q Query, pageSize int) ([][]byt
 
 		body, err := c.Fetch(ctx, page)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		pages = append(pages, body)
 
-		resp, _, err := Parse(body)
+		// How many features the service actually DELIVERED, which is not
+		// the same as how many we could extract. Ending the walk on the
+		// number extracted would let a single unparseable feature on a
+		// full page cut the walk short — and the run would still report
+		// success and complete coverage.
+		delivered, err := countFeatures(body)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		// A short page is the last page. Ordering is fixed to time-asc in
-		// URL(), so paging cannot reshuffle events between requests and
-		// return one twice or skip one.
-		if len(resp.Events) < pageSize {
-			return pages, nil
+
+		if err := fn(body, delivered); err != nil {
+			return err
+		}
+
+		if delivered < pageSize {
+			return nil
 		}
 		offset += pageSize
 	}
+}
+
+// countFeatures reports how many features a response carries, without
+// interpreting them.
+func countFeatures(body []byte) (int, error) {
+	var doc struct {
+		Type     string            `json:"type"`
+		Features []json.RawMessage `json:"features"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return 0, fmt.Errorf("%w: %v", ErrMalformed, err)
+	}
+	if doc.Type != "FeatureCollection" {
+		return 0, fmt.Errorf("%w: expected a FeatureCollection, got type %q", ErrMalformed, doc.Type)
+	}
+	return len(doc.Features), nil
+}
+
+// firstLine trims a source error body down to something loggable.
+func firstLine(b []byte) string {
+	s := strings.TrimSpace(string(b))
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > 200 {
+		s = s[:200] + "..."
+	}
+	if s == "" {
+		return "no detail provided"
+	}
+	return s
 }

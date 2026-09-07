@@ -183,8 +183,18 @@ func List(ctx context.Context, q Querier, query Query) ([]Earthquake, error) {
 	}
 
 	var (
-		args  = []any{asOf}
-		where []string
+		args = []any{asOf}
+		// identity holds predicates over columns that are part of WHICH
+		// event a row is, and so are the same across every version of it.
+		// Only these may run before the version is chosen.
+		identity []string
+		// business holds every other filter. These MUST run after
+		// DISTINCT ON has picked the current version, because a value they
+		// test can differ between versions: filtering first makes
+		// DISTINCT ON choose the latest version *among the matching ones*,
+		// which surfaces a superseded row as current knowledge. An M5.2
+		// later revised to M4.1 would still answer min_magnitude=5.
+		business []string
 	)
 	add := func(v any) int {
 		args = append(args, v)
@@ -192,27 +202,28 @@ func List(ctx context.Context, q Querier, query Query) ([]Earthquake, error) {
 	}
 
 	if query.SourceID != nil {
-		where = append(where, fmt.Sprintf("source_id = $%d", add(*query.SourceID)))
+		identity = append(identity, fmt.Sprintf("source_id = $%d", add(*query.SourceID)))
 	}
 	if query.ExternalID != nil {
-		where = append(where, fmt.Sprintf("external_id = $%d", add(*query.ExternalID)))
+		identity = append(identity, fmt.Sprintf("external_id = $%d", add(*query.ExternalID)))
 	}
+
 	if query.OccurredFrom != nil {
-		where = append(where, fmt.Sprintf("occurred_at >= $%d", add(query.OccurredFrom.UTC())))
+		business = append(business, fmt.Sprintf("occurred_at >= $%d", add(query.OccurredFrom.UTC())))
 	}
 	if query.OccurredTo != nil {
-		where = append(where, fmt.Sprintf("occurred_at <= $%d", add(query.OccurredTo.UTC())))
+		business = append(business, fmt.Sprintf("occurred_at <= $%d", add(query.OccurredTo.UTC())))
 	}
 	if query.MinMagnitude != nil {
 		// A null magnitude is not "below the floor" — it is unknown, and
 		// silently dropping it would be answering a question nobody asked.
-		where = append(where, fmt.Sprintf("magnitude IS NOT NULL AND magnitude >= $%d", add(*query.MinMagnitude)))
+		business = append(business, fmt.Sprintf("magnitude IS NOT NULL AND magnitude >= $%d", add(*query.MinMagnitude)))
 	}
 	switch query.Provenance {
 	case ProvenanceRealOnly:
-		where = append(where, "is_synthetic = false")
+		business = append(business, "is_synthetic = false")
 	case ProvenanceSyntheticOnly:
-		where = append(where, "is_synthetic = true")
+		business = append(business, "is_synthetic = true")
 	case ProvenanceAll:
 	}
 	if len(query.QualityStates) > 0 {
@@ -220,7 +231,7 @@ func List(ctx context.Context, q Querier, query Query) ([]Earthquake, error) {
 		for _, s := range query.QualityStates {
 			states = append(states, s.String())
 		}
-		where = append(where, fmt.Sprintf("quality_state = ANY($%d)", add(states)))
+		business = append(business, fmt.Sprintf("quality_state = ANY($%d)", add(states)))
 	}
 
 	distanceExpr := "NULL::double precision"
@@ -232,14 +243,15 @@ func List(ctx context.Context, q Querier, query Query) ([]Earthquake, error) {
 			return nil, err
 		}
 		pointIdx := add(fmt.Sprintf("SRID=4326;POINT(%v %v)", *query.NearLongitude, *query.NearLatitude))
-		radiusIdx := add(*query.RadiusKm * 1000)
-		where = append(where, fmt.Sprintf("ST_DWithin(location, $%d::geography, $%d)", pointIdx, radiusIdx))
 		distanceExpr = fmt.Sprintf("ST_Distance(location, $%d::geography) / 1000.0", pointIdx)
+		// Location can be revised too, so the radius is applied to the
+		// chosen version's distance rather than inside the subquery.
+		business = append(business, fmt.Sprintf("distance_km <= $%d", add(*query.RadiusKm)))
 	}
 
-	whereSQL := "ingested_at <= $1"
-	if len(where) > 0 {
-		whereSQL += " AND " + strings.Join(where, " AND ")
+	innerWhere := "ingested_at <= $1"
+	if len(identity) > 0 {
+		innerWhere += " AND " + strings.Join(identity, " AND ")
 	}
 
 	sql := fmt.Sprintf(`
@@ -250,20 +262,28 @@ func List(ctx context.Context, q Querier, query Query) ([]Earthquake, error) {
 			WHERE %s
 			ORDER BY external_id, source_id, ingested_at DESC
 		) current_versions
-	`, selectColumns, distanceExpr, whereSQL)
+	`, selectColumns, distanceExpr, innerWhere)
 
 	// Keyset pagination needs a total order, and the cursor must be over
 	// exactly the tuple the ORDER BY uses; id breaks every tie.
 	if query.NearLatitude != nil {
-		if query.AfterDistanceKm != nil {
-			sql += fmt.Sprintf(" WHERE (distance_km, id) > ($%d, $%d)",
-				add(*query.AfterDistanceKm), add(query.AfterID))
+		if query.AfterID > 0 && query.AfterDistanceKm == nil {
+			return nil, fmt.Errorf("earthquake: a distance-ordered page must resume on (distance, id); a cursor carrying only an id would restart the walk")
 		}
+		if query.AfterDistanceKm != nil {
+			business = append(business, fmt.Sprintf("(distance_km, id) > ($%d, $%d)",
+				add(*query.AfterDistanceKm), add(query.AfterID)))
+		}
+	} else if query.AfterID > 0 {
+		business = append(business, fmt.Sprintf("id > $%d", add(query.AfterID)))
+	}
+
+	if len(business) > 0 {
+		sql += " WHERE " + strings.Join(business, " AND ")
+	}
+	if query.NearLatitude != nil {
 		sql += " ORDER BY distance_km ASC, id ASC"
 	} else {
-		if query.AfterID > 0 {
-			sql += fmt.Sprintf(" WHERE id > $%d", add(query.AfterID))
-		}
 		sql += " ORDER BY id ASC"
 	}
 	if query.Limit > 0 {

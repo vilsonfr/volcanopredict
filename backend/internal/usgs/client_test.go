@@ -94,23 +94,40 @@ func TestFetch_GivesUpAfterMaxAttempts(t *testing.T) {
 
 // A client that retries a 400 just adds load to the source: the query is
 // wrong and asking again will not fix it.
-func TestFetch_DoesNotRetryClientErrors(t *testing.T) {
-	var calls atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls.Add(1)
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer srv.Close()
+//
+// And the two kinds of 400 must not be conflated. The service answers 400
+// both for "your window matches more events than I will serve" and for "I
+// did not like this query". Reporting every 400 as the former tells an
+// operator to narrow a window that was never the problem.
+func TestFetch_DoesNotRetryClientErrorsAndDistinguishesThem(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		body        string
+		wantTooMany bool
+	}{
+		{"limite de eventos", "Error 400: the limit of 20000 events was exceeded", true},
+		{"consulta invalida", "Error 400: bad starttime value", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprint(w, tc.body)
+			}))
+			defer srv.Close()
 
-	_, err := testClient(t, srv).Fetch(context.Background(), usgs.Query{})
-	if err == nil {
-		t.Fatal("expected a 400 to fail")
-	}
-	if !errors.Is(err, usgs.ErrTooManyEvents) {
-		t.Fatalf("expected the service's 400 to be reported as a rejected query, got %v", err)
-	}
-	if n := calls.Load(); n != 1 {
-		t.Fatalf("a 400 must not be retried, got %d requests", n)
+			_, err := testClient(t, srv).Fetch(context.Background(), usgs.Query{})
+			if err == nil {
+				t.Fatal("expected a 400 to fail")
+			}
+			if got := errors.Is(err, usgs.ErrTooManyEvents); got != tc.wantTooMany {
+				t.Fatalf("ErrTooManyEvents = %v, want %v (error: %v)", got, tc.wantTooMany, err)
+			}
+			if n := calls.Load(); n != 1 {
+				t.Fatalf("a 400 must not be retried, got %d requests", n)
+			}
+		})
 	}
 }
 
@@ -256,25 +273,25 @@ func TestFetchPages_WalksAWindowWithoutRepeatingOrSkipping(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	pages, err := testClient(t, srv).FetchPages(context.Background(), usgs.Query{}, pageSize)
-	if err != nil {
-		t.Fatalf("FetchPages: %v", err)
-	}
-
 	seen := map[string]int{}
 	var count int
-	for _, page := range pages {
-		resp, recErrs, err := usgs.Parse(page)
-		if err != nil {
-			t.Fatalf("parse page: %v", err)
-		}
-		if len(recErrs) != 0 {
-			t.Fatalf("unexpected record errors: %v", recErrs)
-		}
-		for _, ev := range resp.Events {
-			seen[ev.ID]++
-			count++
-		}
+	err := testClient(t, srv).FetchPages(context.Background(), usgs.Query{}, pageSize,
+		func(body []byte, delivered int) error {
+			resp, recErrs, err := usgs.Parse(body)
+			if err != nil {
+				t.Fatalf("parse page: %v", err)
+			}
+			if len(recErrs) != 0 {
+				t.Fatalf("unexpected record errors: %v", recErrs)
+			}
+			for _, ev := range resp.Events {
+				seen[ev.ID]++
+				count++
+			}
+			return nil
+		})
+	if err != nil {
+		t.Fatalf("FetchPages: %v", err)
 	}
 
 	if count != total {
@@ -300,10 +317,67 @@ func TestFetchPages_ClampsPageSizeToServiceCeiling(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := testClient(t, srv).FetchPages(context.Background(), usgs.Query{}, 999999); err != nil {
+	noop := func(body []byte, delivered int) error { return nil }
+	if err := testClient(t, srv).FetchPages(context.Background(), usgs.Query{}, 999999, noop); err != nil {
 		t.Fatalf("FetchPages: %v", err)
 	}
 	if sawLimit != "20000" {
 		t.Fatalf("expected the page size to be clamped to the service ceiling of 20000, got %q", sawLimit)
+	}
+}
+
+// A single unparseable feature on an otherwise full page must not end the
+// walk. Ending on the number of events EXTRACTED rather than the number
+// DELIVERED would cut the window short here, and the run would still report
+// success and complete coverage — data lost, and nothing saying so.
+func TestFetchPages_BadRecordOnAFullPageDoesNotTruncateTheWalk(t *testing.T) {
+	const pageSize = 10
+	const total = 25
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		var limit, offset int
+		fmt.Sscanf(q.Get("limit"), "%d", &limit)
+		fmt.Sscanf(q.Get("offset"), "%d", &offset)
+
+		var features []string
+		for i := offset; i < offset+limit && i <= total; i++ {
+			if i == offset {
+				// One feature per page that the parser cannot extract.
+				features = append(features, fmt.Sprintf(
+					`{"type":"Feature","id":"bad%03d","properties":{"mag":1.0},"geometry":{"type":"Point","coordinates":[0,0,1]}}`, i))
+				continue
+			}
+			features = append(features, fmt.Sprintf(
+				`{"type":"Feature","id":"ev%03d","properties":{"time":%d,"mag":1.0,"status":"automatic"},"geometry":{"type":"Point","coordinates":[0,0,10]}}`,
+				i, 1788000000000+int64(i)*1000))
+		}
+		fmt.Fprintf(w, `{"type":"FeatureCollection","metadata":{"api":"2.7.0","count":%d},"features":[%s]}`,
+			len(features), strings.Join(features, ","))
+	}))
+	defer srv.Close()
+
+	var good, bad int
+	err := testClient(t, srv).FetchPages(context.Background(), usgs.Query{}, pageSize,
+		func(body []byte, delivered int) error {
+			resp, recErrs, err := usgs.Parse(body)
+			if err != nil {
+				return err
+			}
+			good += len(resp.Events)
+			bad += len(recErrs)
+			return nil
+		})
+	if err != nil {
+		t.Fatalf("FetchPages: %v", err)
+	}
+
+	// 25 events delivered across 3 pages: 3 unparseable, 22 good.
+	if good+bad != total {
+		t.Fatalf("the walk was truncated: saw %d of %d delivered features (%d good, %d rejected)",
+			good+bad, total, good, bad)
+	}
+	if bad != 3 {
+		t.Fatalf("expected one rejected feature per page, got %d", bad)
 	}
 }

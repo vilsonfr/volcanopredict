@@ -673,3 +673,38 @@ func TestIngest_CollectionCircumstanceDoesNotFakeARevision(t *testing.T) {
 		t.Fatalf("the history must carry one version of an unrevised event, got %d", versions)
 	}
 }
+
+// A run recorded with a window ending in the future — which a bad -end can
+// produce — would push the next incremental anchor past now and make every
+// later cycle fail at Begin with an inverted window, before there is any
+// run row to explain why. The loop has to stay recoverable.
+func TestIngestIncremental_ClampsAnAnchorThatWouldLandInTheFuture(t *testing.T) {
+	tdb := dbtest.Start(t)
+	pool := mustPool(t, tdb.ConnString)
+	srcID := usgsSourceID(t, pool)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	// A successful run whose window ends well into the future.
+	run, err := ingestion.Begin(ctx, pool, srcID, ingestion.ModeManual, now.Add(-time.Hour), now.Add(48*time.Hour))
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	if _, err := ingestion.Finish(ctx, pool, run.ID, ingestion.Counts{}); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+
+	srv, _ := serveBodies(t, collection())
+	ing := ingesterFor(t, srv, pool, srcID)
+
+	rep, err := ing.IngestIncremental(ctx, time.Hour)
+	if err != nil {
+		t.Fatalf("the next cycle must still run after a future-dated window: %v", err)
+	}
+	if rep.Run.Result != ingestion.ResultSuccess {
+		t.Fatalf("expected success, got %s (%s)", rep.Run.Result, rep.Run.ErrorMsg)
+	}
+	if rep.Run.WindowStart.After(rep.Run.WindowEnd) {
+		t.Fatalf("the clamped window must not be inverted: %s..%s", rep.Run.WindowStart, rep.Run.WindowEnd)
+	}
+}
