@@ -2,55 +2,104 @@
 // Holocene Volcano List snapshot and imports it into the volcano catalog
 // (design.md D4/D5, catalogo-vulcoes spec).
 //
-// IMPORTANT — format caveat: as of this writing the real snapshot could
-// not be downloaded (volcano.si.edu returns HTTP 403 from a Cloudflare
-// bot check for every attempt made, including with a browser User-Agent;
-// see docs/DATA_SOURCES.md for the exact URLs and status codes tried).
-// The column layout this parser expects (a CSV with the header names
-// below) is therefore UNVERIFIED against the real export and may need
-// adjustment once an actual snapshot is obtained. This package is tested
-// only against a hand-written synthetic fixture
-// (backend/testdata/gvp_holocene_fixture.csv), never against real GVP
-// data — no real snapshot exists in this repository.
+// Format note: the real snapshot (backend/data/gvp/GVP_Volcano_List_Holocene_*.xls,
+// see backend/data/gvp/MANIFEST.md for provenance and checksum) is NOT a
+// CSV, despite an earlier iteration of this package assuming one. It is
+// SpreadsheetML (the Excel 2003 XML workbook format,
+// urn:schemas-microsoft-com:office:spreadsheet), saved with a `.xls`
+// extension. The file is also not well-formed XML: it contains raw `<`
+// characters inside text content (e.g. "Rift zone / Oceanic crust (< 15
+// km)"), which a strict XML parser rejects with "not well-formed (invalid
+// token)". This package sanitizes those occurrences before decoding — see
+// sanitizeRawLessThan.
 package gvp
 
 import (
-	"encoding/csv"
+	"bytes"
+	"encoding/xml"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
-// requiredHeaders are the column names this parser expects, in any order.
-// A file missing any of these fails structurally (task 5.4: "falhando
-// explicitamente diante de formato inesperado") rather than importing a
-// partial, silently-wrong shape.
-var requiredHeaders = []string{
+// expectedHeader is the exact, ordered set of columns this parser accepts
+// for the Holocene Volcano List export. The header is validated exactly
+// (both names and order) — this parser does not tolerantly re-map columns
+// by name if the source's layout changes; a changed header is a
+// structural failure (task 5.4: "falhando explicitamente diante de
+// formato inesperado", explicitly not a name-based tolerant mapping).
+var expectedHeader = []string{
 	"Volcano Number",
 	"Volcano Name",
 	"Country",
+	"Volcanic Region Group",
+	"Volcanic Region",
+	"Volcano Landform",
+	"Primary Volcano Type",
+	"Activity Evidence",
+	"Last Known Eruption",
 	"Latitude",
 	"Longitude",
 	"Elevation (m)",
-	"Status",
+	"Tectonic Setting",
+	"Dominant Rock Type",
 }
 
-// Row is a single parsed data row, with fields still as strings/floats
-// but not yet validated against catalog business rules (e.g. geographic
+// Column positions in expectedHeader. Fixed positions are safe here only
+// because the header is validated exactly against expectedHeader before
+// any data row is parsed.
+const (
+	colVolcanoNumber = iota
+	colVolcanoName
+	colCountry
+	colVolcanicRegionGroup
+	colVolcanicRegion
+	colVolcanoLandform
+	colPrimaryVolcanoType
+	colActivityEvidence
+	colLastKnownEruption
+	colLatitude
+	colLongitude
+	colElevationM
+	colTectonicSetting
+	colDominantRockType
+)
+
+// Row is a single parsed data row, with fields still as strings/floats but
+// not yet validated against catalog business rules (e.g. geographic
 // range) — that validation is the importer's job (task 5.6), so it can be
 // applied uniformly and reported per-record.
 type Row struct {
-	// Line is the 1-based line number in the source file, for error
-	// messages and logs that must identify the offending record.
-	Line       int
-	SourceRef  string
-	Name       string
-	Country    string
+	// Line is the 1-based row number within the SpreadsheetML <Table>
+	// (row 1 is the GVP metadata banner, row 2 is the header, data starts
+	// at row 3), for error messages and logs that must identify the
+	// offending record.
+	Line int
+
+	SourceRef string // Volcano Number
+	Name      string // Volcano Name
+	Country   string
+
+	// Status carries "Activity Evidence" (e.g. "Eruption Observed",
+	// "Eruption Dated", "Evidence Uncertain"). The real GVP export has no
+	// column named "Status" — this is the closest available analog to the
+	// free-text status field the catalog schema (migrations/001_init.sql)
+	// already has, and is used as such rather than adding a new column.
+	Status string
+
+	VolcanicRegionGroup string
+	VolcanicRegion      string
+	VolcanoLandform     string
+	PrimaryVolcanoType  string
+	LastKnownEruption   string
+	TectonicSetting     string
+	DominantRockType    string
+
 	Latitude   float64
 	Longitude  float64
 	ElevationM *float64
-	Status     string
 }
 
 // RowError describes a single row that could not be parsed into a Row.
@@ -65,10 +114,11 @@ func (e RowError) Error() string {
 	return fmt.Sprintf("gvp: row %d: %v", e.Line, e.Err)
 }
 
-// ErrMalformed wraps structural failures: missing/renamed headers, an
-// empty file, or a file that is not valid CSV at all. Structural failures
-// always abort the whole parse — there's nothing safe to salvage from a
-// file whose shape doesn't match what the importer expects.
+// ErrMalformed wraps structural failures: missing/renamed/reordered
+// headers, an empty file, or a file that is not valid SpreadsheetML at
+// all. Structural failures always abort the whole parse — there's nothing
+// safe to salvage from a file whose shape doesn't match what the importer
+// expects.
 type ErrMalformed struct {
 	Reason string
 }
@@ -77,50 +127,65 @@ func (e ErrMalformed) Error() string {
 	return fmt.Sprintf("gvp: malformed snapshot: %s", e.Reason)
 }
 
-// Parse reads a GVP Holocene Volcano List CSV snapshot. It returns the
-// successfully parsed rows, a list of per-row errors for rows that were
-// skipped, and a non-nil error only for structural failures that make the
-// entire file unusable.
-func Parse(r io.Reader) ([]Row, []RowError, error) {
-	cr := csv.NewReader(r)
-	cr.FieldsPerRecord = -1 // validated explicitly below, with a clearer error
+// rawLessThan matches a raw `<` that cannot possibly be starting a real
+// XML tag — real tags open with a letter, `/`, `?`, or `!`. The known
+// occurrences in the GVP export (see MANIFEST.md) are things like
+// "(< 15 km)", i.e. `<` followed by a space or a digit.
+var rawLessThan = regexp.MustCompile(`<([ 0-9])`)
 
-	header, err := cr.Read()
-	if err == io.EOF {
-		return nil, nil, ErrMalformed{Reason: "file is empty, no header row found"}
+// sanitizeRawLessThan escapes raw `<` characters that are not well-formed
+// XML markup, without touching legitimate tags (which never start with a
+// space or digit).
+func sanitizeRawLessThan(data []byte) []byte {
+	return rawLessThan.ReplaceAll(data, []byte("&lt;$1"))
+}
+
+// versionPattern extracts a dotted version number (e.g. "5.4.0") from the
+// GVP metadata banner's free text, e.g.
+// "Global Volcanism Program - Volcanoes of the World 5.4.0".
+var versionPattern = regexp.MustCompile(`\d+(?:\.\d+)+`)
+
+const ssNamespace = "urn:schemas-microsoft-com:office:spreadsheet"
+
+// Parse reads a GVP Holocene Volcano List SpreadsheetML (.xls)
+// snapshot. It returns the database version string extracted from the
+// file's own metadata banner (never hardcoded), the successfully parsed
+// rows, a list of per-row errors for rows that were skipped, and a non-nil
+// error only for structural failures that make the entire file unusable.
+func Parse(r io.Reader) (version string, rows []Row, rowErrs []RowError, err error) {
+	raw, readErr := io.ReadAll(r)
+	if readErr != nil {
+		return "", nil, nil, ErrMalformed{Reason: fmt.Sprintf("failed to read input: %v", readErr)}
 	}
-	if err != nil {
-		return nil, nil, ErrMalformed{Reason: fmt.Sprintf("failed to read header row: %v", err)}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return "", nil, nil, ErrMalformed{Reason: "file is empty"}
 	}
 
-	index := make(map[string]int, len(header))
-	for i, h := range header {
-		index[strings.TrimSpace(h)] = i
-	}
-	var missing []string
-	for _, want := range requiredHeaders {
-		if _, ok := index[want]; !ok {
-			missing = append(missing, want)
-		}
-	}
-	if len(missing) > 0 {
-		return nil, nil, ErrMalformed{Reason: fmt.Sprintf("missing required column(s): %s", strings.Join(missing, ", "))}
+	sanitized := sanitizeRawLessThan(raw)
+
+	tableRows, decodeErr := decodeSpreadsheetRows(sanitized)
+	if decodeErr != nil {
+		return "", nil, nil, ErrMalformed{Reason: fmt.Sprintf("failed to decode SpreadsheetML: %v", decodeErr)}
 	}
 
-	var rows []Row
-	var rowErrs []RowError
-	line := 1 // header was line 1
-	for {
-		line++
-		record, err := cr.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, nil, ErrMalformed{Reason: fmt.Sprintf("failed to read line %d: %v", line, err)}
-		}
+	if len(tableRows) < 2 {
+		return "", nil, nil, ErrMalformed{Reason: fmt.Sprintf("expected at least a metadata row and a header row, got %d row(s)", len(tableRows))}
+	}
 
-		row, err := parseRow(record, index, line)
+	version = extractVersion(tableRows[0])
+	if version == "" {
+		return "", nil, nil, ErrMalformed{Reason: fmt.Sprintf("could not extract a database version from the metadata row: %v", tableRows[0])}
+	}
+
+	header := tableRows[1]
+	if err := validateHeader(header); err != nil {
+		return "", nil, nil, err
+	}
+
+	for i := 2; i < len(tableRows); i++ {
+		line := i + 1 // 1-based row number within the table
+		record := padTo(tableRows[i], len(expectedHeader))
+		row, err := parseRow(record, line)
 		if err != nil {
 			rowErrs = append(rowErrs, RowError{Line: line, Err: err})
 			continue
@@ -128,30 +193,136 @@ func Parse(r io.Reader) ([]Row, []RowError, error) {
 		rows = append(rows, row)
 	}
 
-	return rows, rowErrs, nil
+	return version, rows, rowErrs, nil
 }
 
-func field(record []string, index map[string]int, name string) (string, bool) {
-	i, ok := index[name]
-	if !ok || i >= len(record) {
-		return "", false
+func extractVersion(metadataRow []string) string {
+	for _, cell := range metadataRow {
+		if m := versionPattern.FindString(cell); m != "" {
+			return m
+		}
 	}
-	return strings.TrimSpace(record[i]), true
+	return ""
 }
 
-func parseRow(record []string, index map[string]int, line int) (Row, error) {
-	num, ok := field(record, index, "Volcano Number")
-	if !ok || num == "" {
+func validateHeader(header []string) error {
+	header = padTo(header, len(expectedHeader))
+	if len(header) != len(expectedHeader) {
+		return ErrMalformed{Reason: fmt.Sprintf("expected %d columns, got %d: %v", len(expectedHeader), len(header), header)}
+	}
+	for i, want := range expectedHeader {
+		got := strings.TrimSpace(header[i])
+		if got != want {
+			return ErrMalformed{Reason: fmt.Sprintf("unexpected header at column %d: expected %q, got %q (full header: %v)", i+1, want, got, header)}
+		}
+	}
+	return nil
+}
+
+func padTo(record []string, n int) []string {
+	if len(record) >= n {
+		return record
+	}
+	out := make([]string, n)
+	copy(out, record)
+	return out
+}
+
+// decodeSpreadsheetRows walks the SpreadsheetML token stream and returns
+// each <Row> as a slice of cell text, honoring ss:Index on <Cell> to
+// reposition columns when the source skips empty cells (a valid
+// SpreadsheetML optimization that would otherwise silently misalign
+// columns).
+func decodeSpreadsheetRows(sanitized []byte) ([][]string, error) {
+	dec := xml.NewDecoder(bytes.NewReader(sanitized))
+
+	var rows [][]string
+	var currentRow []string
+	nextIndex := 0 // 0-based index the next <Cell> without ss:Index lands at
+
+	inData := false
+	var dataBuf strings.Builder
+
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		switch t := tok.(type) {
+		case xml.StartElement:
+			if t.Name.Space != ssNamespace {
+				continue
+			}
+			switch t.Name.Local {
+			case "Row":
+				currentRow = nil
+				nextIndex = 0
+			case "Cell":
+				colIndex := nextIndex
+				if idxAttr := findAttr(t.Attr, "Index"); idxAttr != "" {
+					if parsed, err := strconv.Atoi(idxAttr); err == nil {
+						colIndex = parsed - 1 // ss:Index is 1-based
+					}
+				}
+				if colIndex >= len(currentRow) {
+					grown := make([]string, colIndex+1)
+					copy(grown, currentRow)
+					currentRow = grown
+				}
+				nextIndex = colIndex + 1
+			case "Data":
+				inData = true
+				dataBuf.Reset()
+			}
+		case xml.CharData:
+			if inData {
+				dataBuf.Write(t)
+			}
+		case xml.EndElement:
+			if t.Name.Space != ssNamespace {
+				continue
+			}
+			switch t.Name.Local {
+			case "Data":
+				if inData && nextIndex > 0 {
+					currentRow[nextIndex-1] = dataBuf.String()
+				}
+				inData = false
+			case "Row":
+				rows = append(rows, currentRow)
+				currentRow = nil
+			}
+		}
+	}
+
+	return rows, nil
+}
+
+func findAttr(attrs []xml.Attr, local string) string {
+	for _, a := range attrs {
+		if a.Name.Local == local {
+			return a.Value
+		}
+	}
+	return ""
+}
+
+func parseRow(record []string, line int) (Row, error) {
+	num := strings.TrimSpace(record[colVolcanoNumber])
+	if num == "" {
 		return Row{}, fmt.Errorf("missing Volcano Number")
 	}
-	name, ok := field(record, index, "Volcano Name")
-	if !ok || name == "" {
+	name := strings.TrimSpace(record[colVolcanoName])
+	if name == "" {
 		return Row{}, fmt.Errorf("missing Volcano Name")
 	}
-	country, _ := field(record, index, "Country")
 
-	latRaw, ok := field(record, index, "Latitude")
-	if !ok || latRaw == "" {
+	latRaw := strings.TrimSpace(record[colLatitude])
+	if latRaw == "" {
 		return Row{}, fmt.Errorf("missing Latitude")
 	}
 	lat, err := strconv.ParseFloat(latRaw, 64)
@@ -159,8 +330,8 @@ func parseRow(record []string, index map[string]int, line int) (Row, error) {
 		return Row{}, fmt.Errorf("unparseable Latitude %q: %w", latRaw, err)
 	}
 
-	lonRaw, ok := field(record, index, "Longitude")
-	if !ok || lonRaw == "" {
+	lonRaw := strings.TrimSpace(record[colLongitude])
+	if lonRaw == "" {
 		return Row{}, fmt.Errorf("missing Longitude")
 	}
 	lon, err := strconv.ParseFloat(lonRaw, 64)
@@ -169,7 +340,7 @@ func parseRow(record []string, index map[string]int, line int) (Row, error) {
 	}
 
 	var elevation *float64
-	if elevRaw, ok := field(record, index, "Elevation (m)"); ok && elevRaw != "" {
+	if elevRaw := strings.TrimSpace(record[colElevationM]); elevRaw != "" {
 		e, err := strconv.ParseFloat(elevRaw, 64)
 		if err != nil {
 			return Row{}, fmt.Errorf("unparseable Elevation (m) %q: %w", elevRaw, err)
@@ -177,16 +348,21 @@ func parseRow(record []string, index map[string]int, line int) (Row, error) {
 		elevation = &e
 	}
 
-	status, _ := field(record, index, "Status")
-
 	return Row{
-		Line:       line,
-		SourceRef:  num,
-		Name:       name,
-		Country:    country,
-		Latitude:   lat,
-		Longitude:  lon,
-		ElevationM: elevation,
-		Status:     status,
+		Line:                line,
+		SourceRef:           num,
+		Name:                name,
+		Country:             strings.TrimSpace(record[colCountry]),
+		VolcanicRegionGroup: strings.TrimSpace(record[colVolcanicRegionGroup]),
+		VolcanicRegion:      strings.TrimSpace(record[colVolcanicRegion]),
+		VolcanoLandform:     strings.TrimSpace(record[colVolcanoLandform]),
+		PrimaryVolcanoType:  strings.TrimSpace(record[colPrimaryVolcanoType]),
+		Status:              strings.TrimSpace(record[colActivityEvidence]),
+		LastKnownEruption:   strings.TrimSpace(record[colLastKnownEruption]),
+		Latitude:            lat,
+		Longitude:           lon,
+		ElevationM:          elevation,
+		TectonicSetting:     strings.TrimSpace(record[colTectonicSetting]),
+		DominantRockType:    strings.TrimSpace(record[colDominantRockType]),
 	}, nil
 }

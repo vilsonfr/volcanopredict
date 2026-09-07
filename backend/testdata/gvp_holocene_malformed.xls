@@ -1,0 +1,6 @@
+<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Worksheet ss:Name="Fixture"><Table>
+<Row><Cell><Data ss:Type="String">Global Volcanism Program - Volcanoes of the World 9.9.9</Data></Cell></Row>
+<Row><Cell><Data ss:Type="String">Volcano Number</Data></Cell><Cell><Data ss:Type="String">Volcano Name</Data></Cell><Cell><Data ss:Type="String">Country</Data></Cell></Row>
+<Row><Cell><Data ss:Type="String">FIXTURE-0001</Data></Cell><Cell><Data ss:Type="String">Testonia Peak</Data></Cell><Cell><Data ss:Type="String">Testlandia</Data></Cell></Row>
+</Table></Worksheet></Workbook>

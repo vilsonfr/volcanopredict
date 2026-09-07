@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/vilsonfr/volcanopredict/backend/internal/config"
@@ -23,6 +24,12 @@ type Event struct {
 }
 
 func main() {
+	// Subcomandos precedem o servidor: importar o catalogo e um ato
+	// deliberado, nao um passo de inicializacao (design.md D4).
+	if len(os.Args) > 1 && os.Args[1] == "import-catalog" {
+		os.Exit(runImportCatalog(os.Args[2:]))
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("startup: %v", err)

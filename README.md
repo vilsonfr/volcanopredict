@@ -31,6 +31,27 @@ Plataforma open source para visualização, análise e pesquisa de atividade vul
 3. Backend: `http://localhost:8080/health`
 4. Frontend: `http://localhost:5173`
 
+## Catálogo de vulcões
+
+O catálogo vem do Smithsonian Global Volcanism Program, versionado em
+`backend/data/gvp/` (veja o `MANIFEST.md` de lá para versão, DOI e checksum).
+
+Para importar ou reimportar:
+
+```bash
+docker compose exec backend /app/volcanopredict import-catalog
+```
+
+O comando verifica o SHA-256 do snapshot contra o manifesto antes de tocar no
+banco, e é idempotente: rodar duas vezes seguidas relata zero inserções e zero
+atualizações. Vulcões que somem da fonte são marcados como ausentes, nunca
+apagados.
+
+Para atualizar o catálogo, baixe o arquivo novo em
+<https://volcano.si.edu/volcanolist_holocene.cfm> (o site exige navegador —
+clientes automatizados recebem 403 da Cloudflare), substitua o arquivo,
+atualize o `MANIFEST.md` com a nova versão, data e SHA-256, e rode o comando.
+
 ## Contribuição
 Veja `CONTRIBUTING.md`. Procure issues marcadas `good first issue`, adicione testes e cite a fonte dos dados.
 

@@ -25,6 +25,10 @@ type Rejection struct {
 // Report summarizes one importer run (spec: "relata quantos registros
 // foram inseridos, atualizados, inalterados e rejeitados").
 type Report struct {
+	// Version is the GVP database version read from the snapshot's own
+	// metadata banner (e.g. "5.4.0"), never hardcoded, so a run can always
+	// be traced back to the exact catalog edition it came from.
+	Version      string
 	Inserted     int
 	Updated      int
 	Unchanged    int
@@ -37,12 +41,12 @@ type Report struct {
 // so callers typically pass a *pgxpool.Pool or a pgx.Tx.
 type Querier = volcano.Querier
 
-// Import reads a GVP Holocene Volcano List CSV from r and upserts it into
-// the catalog under sourceID (the data_sources.id resolved by the caller
-// via internal/source — this package deliberately does not look up the
-// source itself, keeping "toda fonte externa é registrada antes de ser
-// usada" enforced at the call site that already has to resolve
-// source.GetEnabledByName).
+// Import reads a GVP Holocene Volcano List SpreadsheetML snapshot from r
+// and upserts it into the catalog under sourceID (the data_sources.id
+// resolved by the caller via internal/source — this package deliberately
+// does not look up the source itself, keeping "toda fonte externa é
+// registrada antes de ser usada" enforced at the call site that already
+// has to resolve source.GetEnabledByName).
 //
 // Rows that fail structural parsing abort the whole import (a malformed
 // file is exactly the case design.md's Risks section calls out: "falha
@@ -55,12 +59,12 @@ type Querier = volcano.Querier
 // Volcanoes previously imported from sourceID that do not appear in this
 // run are marked absent_from_source_at, never deleted.
 func Import(ctx context.Context, q Querier, sourceID int64, r io.Reader) (Report, error) {
-	rows, parseRowErrs, err := Parse(r)
+	version, rows, parseRowErrs, err := Parse(r)
 	if err != nil {
 		return Report{}, fmt.Errorf("gvp: import aborted, source snapshot is malformed: %w", err)
 	}
 
-	var report Report
+	report := Report{Version: version}
 	for _, rowErr := range parseRowErrs {
 		log.Printf("gvp: import: rejected row %d: %v", rowErr.Line, rowErr.Err)
 		report.Rejected = append(report.Rejected, Rejection{Line: rowErr.Line, Err: rowErr.Err})
@@ -106,8 +110,8 @@ func Import(ctx context.Context, q Querier, sourceID int64, r io.Reader) (Report
 	}
 	report.MarkedAbsent = int(marked)
 
-	log.Printf("gvp: import complete: inserted=%d updated=%d unchanged=%d marked_absent=%d rejected=%d",
-		report.Inserted, report.Updated, report.Unchanged, report.MarkedAbsent, len(report.Rejected))
+	log.Printf("gvp: import complete: version=%s inserted=%d updated=%d unchanged=%d marked_absent=%d rejected=%d",
+		report.Version, report.Inserted, report.Updated, report.Unchanged, report.MarkedAbsent, len(report.Rejected))
 
 	return report, nil
 }
