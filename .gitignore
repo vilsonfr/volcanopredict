@@ -1,0 +1,24 @@
+# Ambiente — nunca commitar
+.env
+.env.*
+!.env.example
+
+# Go
+/backend/bin/
+*.test
+*.out
+coverage.txt
+
+# Node
+node_modules/
+/frontend/dist/
+/frontend/.vite/
+npm-debug.log*
+
+# Editores e SO
+.DS_Store
+.idea/
+*.swp
+
+# Dados locais não versionados (snapshots de fonte vão em backend/data/, versionados)
+/tmp/
