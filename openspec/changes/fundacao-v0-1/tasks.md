@@ -8,7 +8,7 @@
 - [x] 1.6 Criar `frontend/Dockerfile` (build multi-stage, servindo em modo dev na porta documentada); verificar que `docker compose build frontend` conclui
 - [x] 1.7 Adicionar `healthcheck` ao serviço `db` e `depends_on: condition: service_healthy` no backend do `docker-compose.yml`; verificar que o backend não inicia antes do banco aceitar conexões
 - [x] 1.8 Trocar o placeholder `SEU_USUARIO` no caminho do módulo em `go.mod` pelo caminho real do repositório e ajustar imports; verificar que `go build ./...` passa
-- [ ] 1.9 Verificação de integração: a partir de um clone limpo em diretório temporário, `cp .env.example .env && docker compose up --build` deixa `/health` respondendo `200` e o frontend servido, sem passo manual adicional
+- [x] 1.9 Verificação de integração: a partir de um clone limpo em diretório temporário, `cp .env.example .env && docker compose up --build` deixa `/health` respondendo `200` e o frontend servido, sem passo manual adicional
 
 ## 2. Configuração e conexão com o banco
 
