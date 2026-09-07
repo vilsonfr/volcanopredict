@@ -2,31 +2,55 @@ services:
   db:
     image: postgis/postgis:16-3.4
     environment:
-      POSTGRES_DB: volcanopredict
-      POSTGRES_USER: volcano
-      POSTGRES_PASSWORD: volcano
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      # Porta do host configurável: uma instalação local de PostgreSQL na
+      # máquina já ocupa a 5432 e impediria a subida. A porta interna é sempre
+      # 5432 — DATABASE_URL não muda.
+      - "${DB_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backend/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      # O backend só inicia depois que isto passa. Sem o healthcheck,
+      # depends_on garante apenas que o container subiu — não que o Postgres
+      # já aceita conexões.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
 
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgres://volcano:volcano@db:5432/volcanopredict?sslmode=disable
-      HTTP_ADDR: :8080
+      DATABASE_URL: ${DATABASE_URL}
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT}
+      HTTP_ADDR: ${HTTP_ADDR}
+      LOG_LEVEL: ${LOG_LEVEL}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${BACKEND_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
   frontend:
-    build: ./frontend
-    ports:
-      - "5173:5173"
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     depends_on:
       - backend
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:5173"
 
 volumes:
   pgdata:

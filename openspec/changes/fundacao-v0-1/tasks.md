@@ -1,13 +1,13 @@
 ## 1. Ambiente sobe de clone limpo
 
-- [ ] 1.1 Adicionar `.gitignore` cobrindo `.env`, `node_modules/`, binários de build e artefatos de teste; verificar com `git status --ignored` que `.env` aparece como ignorado
-- [ ] 1.2 Criar `.env.example` documentando cada variável (`DATABASE_URL`, `HTTP_ADDR`, `DB_CONNECT_TIMEOUT`, `LOG_LEVEL`) com valores de desenvolvimento e nenhum segredo; verificar por inspeção que toda variável lida pelo código está listada
-- [ ] 1.3 Gerar `backend/go.sum` e remover de `go.mod` qualquer dependência não importada; verificar que `go mod verify` e `go build ./...` passam
-- [ ] 1.4 Criar `frontend/tsconfig.json` e `frontend/vite.config.ts` com o plugin React aplicado; verificar que `npm run build` conclui sem erro
-- [ ] 1.5 Corrigir `frontend/index.html` para documento HTML completo com `<!doctype>`, `<head>` e `<title>`; verificar que o build não emite aviso de HTML inválido
-- [ ] 1.6 Criar `frontend/Dockerfile` (build multi-stage, servindo em modo dev na porta documentada); verificar que `docker compose build frontend` conclui
-- [ ] 1.7 Adicionar `healthcheck` ao serviço `db` e `depends_on: condition: service_healthy` no backend do `docker-compose.yml`; verificar que o backend não inicia antes do banco aceitar conexões
-- [ ] 1.8 Trocar o placeholder `SEU_USUARIO` no caminho do módulo em `go.mod` pelo caminho real do repositório e ajustar imports; verificar que `go build ./...` passa
+- [x] 1.1 Adicionar `.gitignore` cobrindo `.env`, `node_modules/`, binários de build e artefatos de teste; verificar com `git status --ignored` que `.env` aparece como ignorado
+- [x] 1.2 Criar `.env.example` documentando cada variável (`DATABASE_URL`, `HTTP_ADDR`, `DB_CONNECT_TIMEOUT`, `LOG_LEVEL`) com valores de desenvolvimento e nenhum segredo; verificar por inspeção que toda variável lida pelo código está listada
+- [x] 1.3 Gerar `backend/go.sum` e remover de `go.mod` qualquer dependência não importada; verificar que `go mod verify` e `go build ./...` passam
+- [x] 1.4 Criar `frontend/tsconfig.json` e `frontend/vite.config.ts` com o plugin React aplicado; verificar que `npm run build` conclui sem erro
+- [x] 1.5 Corrigir `frontend/index.html` para documento HTML completo com `<!doctype>`, `<head>` e `<title>`; verificar que o build não emite aviso de HTML inválido
+- [x] 1.6 Criar `frontend/Dockerfile` (build multi-stage, servindo em modo dev na porta documentada); verificar que `docker compose build frontend` conclui
+- [x] 1.7 Adicionar `healthcheck` ao serviço `db` e `depends_on: condition: service_healthy` no backend do `docker-compose.yml`; verificar que o backend não inicia antes do banco aceitar conexões
+- [x] 1.8 Trocar o placeholder `SEU_USUARIO` no caminho do módulo em `go.mod` pelo caminho real do repositório e ajustar imports; verificar que `go build ./...` passa
 - [ ] 1.9 Verificação de integração: a partir de um clone limpo em diretório temporário, `cp .env.example .env && docker compose up --build` deixa `/health` respondendo `200` e o frontend servido, sem passo manual adicional
 
 ## 2. Configuração e conexão com o banco
