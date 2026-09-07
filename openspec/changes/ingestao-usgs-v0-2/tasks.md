@@ -14,32 +14,32 @@
 
 ## 3. Cliente HTTP da fonte
 
-- [ ] 3.1 Implementar em `internal/usgs` o cliente do FDSN Event API com tempo limite, limite de tentativas, espera crescente entre elas e `User-Agent` que identifica o projeto; verificar com testes contra servidor HTTP local que simula timeout, `500`, corpo truncado e sucesso, afirmando o número de tentativas em cada caso
+- [x] 3.1 Implementar em `internal/usgs` o cliente do FDSN Event API com tempo limite, limite de tentativas, espera crescente entre elas e `User-Agent` que identifica o projeto; verificar com testes contra servidor HTTP local que simula timeout, `500`, corpo truncado e sucesso, afirmando o número de tentativas em cada caso
 - [ ] 3.2 Capturar da API real e versionar em `testdata` as respostas de referência, incluindo **o mesmo evento antes e depois de revisão pelo USGS**, com README marcando-as como amostra datada e não como catálogo; verificar que a suíte inteira roda sem acesso à rede
-- [ ] 3.3 Implementar a montagem da consulta por janela (`starttime`/`endtime`) e por atualização (`updatedafter`), com paginação por `limit`/`offset` respeitando o teto de 20.000 eventos por requisição; verificar com teste que uma janela que excede o teto é percorrida em páginas sem repetir nem omitir evento
+- [x] 3.3 Implementar a montagem da consulta por janela (`starttime`/`endtime`) e por atualização (`updatedafter`), com paginação por `limit`/`offset` respeitando o teto de 20.000 eventos por requisição; verificar com teste que uma janela que excede o teto é percorrida em páginas sem repetir nem omitir evento
 
 ## 4. Parser, validação e normalização
 
-- [ ] 4.1 Implementar o parser do GeoJSON do USGS extraindo identificador, instante, coordenadas, profundidade, magnitude, tipo de magnitude, status e indicadores da solução; verificar com testes sobre a fixture real e sobre resposta deliberadamente malformada, afirmando que a malformada falha nomeando a etapa de parse
-- [ ] 4.2 Fazer o parser distinguir campo ausente de valor zero para magnitude e profundidade; verificar com teste sobre evento real sem magnitude que o valor persistido é ausente, e não zero
+- [x] 4.1 Implementar o parser do GeoJSON do USGS extraindo identificador, instante, coordenadas, profundidade, magnitude, tipo de magnitude, status e indicadores da solução; verificar com testes sobre a fixture real e sobre resposta deliberadamente malformada, afirmando que a malformada falha nomeando a etapa de parse
+- [x] 4.2 Fazer o parser distinguir campo ausente de valor zero para magnitude e profundidade; verificar com teste sobre evento real sem magnitude que o valor persistido é ausente, e não zero
 - [ ] 4.3 Implementar a validação de registro individual — coordenada em faixa válida, instante presente e interpretável, identificador não vazio — rejeitando o registro isolado e prosseguindo com os demais; verificar com teste que um lote com um registro inválido persiste os válidos e relata a contagem de rejeitados
-- [ ] 4.4 Implementar a normalização: timestamps em UTC, coordenadas em SRID 4326, profundidade em quilômetros com unidade explícita, identificador da fonte preservado sem reescrita; verificar com teste que compara o registro normalizado com o dado cru correspondente campo a campo
-- [ ] 4.5 Gravar a versão do parser em cada registro e fazê-la mudar quando a extração mudar; verificar com teste que registros produzidos por versões diferentes são distinguíveis por consulta
+- [x] 4.4 Implementar a normalização: timestamps em UTC, coordenadas em SRID 4326, profundidade em quilômetros com unidade explícita, identificador da fonte preservado sem reescrita; verificar com teste que compara o registro normalizado com o dado cru correspondente campo a campo
+- [x] 4.5 Gravar a versão do parser em cada registro e fazê-la mudar quando a extração mudar; verificar com teste que registros produzidos por versões diferentes são distinguíveis por consulta
 
 ## 5. Motor de qualidade
 
-- [ ] 5.1 Implementar em `internal/dataquality` os estados (`valid`, `suspect`, `duplicate`, `outlier`, `corrupted`, `delayed`) sem zero-value útil, de modo que esquecer de avaliar seja erro e não `valid` implícito; verificar com teste que persistir sem estado avaliado é rejeitado
-- [ ] 5.2 Implementar as verificações nomeadas de valor impossível, timestamp inválido, duplicata e chegada tardia, cada uma gravando no motivo o nome estável da regra que a produziu; verificar com testes um caso por regra, afirmando o estado **e** o nome da regra no motivo
+- [x] 5.1 Implementar em `internal/dataquality` os estados (`valid`, `suspect`, `duplicate`, `outlier`, `corrupted`, `delayed`) sem zero-value útil, de modo que esquecer de avaliar seja erro e não `valid` implícito; verificar com teste que persistir sem estado avaliado é rejeitado
+- [x] 5.2 Implementar as verificações nomeadas de valor impossível, timestamp inválido, duplicata e chegada tardia, cada uma gravando no motivo o nome estável da regra que a produziu; verificar com testes um caso por regra, afirmando o estado **e** o nome da regra no motivo
 - [ ] 5.3 Garantir que registro que falhou verificação é persistido marcado, nunca descartado; verificar com teste que um lote com registro implausível persiste esse registro com estado não-`valid` e o mantém recuperável
 - [ ] 5.4 Verificar com teste que reavaliar não altera versão anterior: revisão que corrige valor implausível gera versão `valid` e a consulta as-of anterior à revisão continua devolvendo `suspect`
 
 ## 6. Persistência e leitura temporal
 
-- [ ] 6.1 Implementar `internal/earthquake` como único lugar autorizado a escrever predicado temporal sobre `earthquakes`, com leitura corrente e as-of, `Provenance` sem zero-value útil e as-of futuro rejeitado; verificar com testes espelhando os de `internal/observation`, inclusive o de que `ingested_at` informado pelo chamador é ignorado
-- [ ] 6.2 Implementar a escrita com deduplicação por comparação de conteúdo normalizado, não por confiança no `updated` da fonte; verificar com testes que reingerir a mesma resposta relata zero inserções e zero atualizações, e que payload idêntico com `updated` novo **não** cria versão
+- [x] 6.1 Implementar `internal/earthquake` como único lugar autorizado a escrever predicado temporal sobre `earthquakes`, com leitura corrente e as-of, `Provenance` sem zero-value útil e as-of futuro rejeitado; verificar com testes espelhando os de `internal/observation`, inclusive o de que `ingested_at` informado pelo chamador é ignorado
+- [x] 6.2 Implementar a escrita com deduplicação por comparação de conteúdo normalizado, não por confiança no `updated` da fonte; verificar com testes que reingerir a mesma resposta relata zero inserções e zero atualizações, e que payload idêntico com `updated` novo **não** cria versão
 - [ ] 6.3 Verificar com teste, usando a fixture do mesmo evento antes e depois da revisão real do USGS, que a revisão cria versão nova, que a leitura corrente devolve só a nova, e que a as-of anterior devolve a magnitude antiga — o teste que a V0.1 não teve como escrever
-- [ ] 6.4 Escrever teste de data leakage sobre sismos, percorrendo instantes as-of e afirmando que nenhum resultado tem `ingested_at` posterior ao instante consultado; verificar por sabotagem deliberada do predicado que o teste fica vermelho — a sabotagem tem de compilar
-- [ ] 6.5 Implementar a consulta por proximidade e por magnitude mínima sobre PostGIS, com distância em cada item; verificar com teste de integração sobre coordenadas conhecidas e com teste de que latitude fora de faixa é rejeitada
+- [x] 6.4 Escrever teste de data leakage sobre sismos, percorrendo instantes as-of e afirmando que nenhum resultado tem `ingested_at` posterior ao instante consultado; verificar por sabotagem deliberada do predicado que o teste fica vermelho — a sabotagem tem de compilar
+- [x] 6.5 Implementar a consulta por proximidade e por magnitude mínima sobre PostGIS, com distância em cada item; verificar com teste de integração sobre coordenadas conhecidas e com teste de que latitude fora de faixa é rejeitada
 
 ## 7. Execuções, cobertura e lacunas
 

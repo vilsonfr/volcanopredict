@@ -1,0 +1,173 @@
+{
+ "type": "FeatureCollection",
+ "metadata": {
+  "generated": 1788813126000,
+  "url": "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2026-09-01&endtime=2026-09-03&minmagnitude=5&orderby=time",
+  "title": "USGS Earthquakes",
+  "status": 200,
+  "api": "2.7.0",
+  "count": 4
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 6.2,
+    "place": "South Sandwich Islands region",
+    "time": 1788392817617,
+    "updated": 1788479692041,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tdrv",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000tdrv&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 3.79,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 591,
+    "net": "us",
+    "code": "7000tdrv",
+    "ids": ",us7000tdrv,usauto7000tdrv,",
+    "sources": ",us,usauto,",
+    "types": ",ground-failure,internal-moment-tensor,losspager,moment-tensor,origin,phase-data,shakemap,",
+    "nst": 64,
+    "dmin": 5.273,
+    "rms": 1.15,
+    "gap": 46,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 6.2 - South Sandwich Islands region"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -27.9085,
+     -56.2062,
+     125.905
+    ]
+   },
+   "id": "us7000tdrv"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.4,
+    "place": "82 km S of Isangel, Vanuatu",
+    "time": null,
+    "updated": 1788471000056,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tdr1",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000tdr1&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 3.701,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 449,
+    "net": "us",
+    "code": "7000tdr1",
+    "ids": ",us7000tdr1,",
+    "sources": ",us,",
+    "types": ",losspager,moment-tensor,origin,phase-data,shakemap,",
+    "nst": 106,
+    "dmin": 2.951,
+    "rms": 0.83,
+    "gap": 22,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 5.4 - 82 km S of Isangel, Vanuatu"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     169.4012,
+     -20.279,
+     93.091
+    ]
+   },
+   "id": "us7000tdr1"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.4,
+    "place": "51 km W of Bulolo, Papua New Guinea",
+    "time": 1788379472508,
+    "updated": 1788534282892,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tdqc",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000tdqc&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 4.436,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 449,
+    "net": "us",
+    "code": "7000tdqc",
+    "ids": ",us7000tdqc,",
+    "sources": ",us,",
+    "types": ",losspager,origin,phase-data,shakemap,",
+    "nst": 143,
+    "dmin": 2.459,
+    "rms": 0.64,
+    "gap": 22,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 5.4 - 51 km W of Bulolo, Papua New Guinea"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     146.175,
+     -7.1321,
+     57.516
+    ]
+   },
+   "id": ""
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "mag": 5.9,
+    "place": "southern East Pacific Rise",
+    "time": 1788352556627,
+    "updated": 1788454865040,
+    "tz": null,
+    "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tdms",
+    "detail": "https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us7000tdms&format=geojson",
+    "felt": null,
+    "cdi": null,
+    "mmi": 0,
+    "alert": "green",
+    "status": "reviewed",
+    "tsunami": 0,
+    "sig": 536,
+    "net": "us",
+    "code": "7000tdms",
+    "ids": ",usauto7000tdms,us7000tdms,",
+    "sources": ",usauto,us,",
+    "types": ",internal-moment-tensor,losspager,moment-tensor,origin,phase-data,shakemap,",
+    "nst": 72,
+    "dmin": 7.804,
+    "rms": 0.97,
+    "gap": 106,
+    "magType": "mww",
+    "type": "earthquake",
+    "title": "M 5.9 - southern East Pacific Rise"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -109.0259,
+     -34.9815,
+     10
+    ]
+   },
+   "id": "us7000tdms"
+  }
+ ]
+}
