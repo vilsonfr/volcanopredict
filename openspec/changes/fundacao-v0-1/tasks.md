@@ -28,11 +28,11 @@
 
 ## 4. Leitura temporal
 
-- [ ] 4.1 Implementar em `internal/observation` a leitura corrente (versão de maior `ingested_at` por chave natural) e a leitura as-of restrita a `ingested_at <= T`; verificar com testes que registro ingerido após T é invisível na consulta as-of, que a leitura corrente não duplica por versão, e que a mesma consulta as-of repetida retorna conjunto idêntico
-- [ ] 4.2 Rejeitar consulta as-of com instante futuro; verificar com teste que retorna erro em vez de estado atual
-- [ ] 4.3 Implementar filtro por proveniência (apenas reais, apenas sintéticos, ambos); verificar com teste que o filtro por reais não retorna nenhum sintético
-- [ ] 4.4 Garantir que `ingested_at` fornecido pelo chamador é ignorado na escrita; verificar com teste que persiste informando `ingested_at` no passado e confirma que o valor gravado é o instante da persistência
-- [ ] 4.5 Escrever teste de data leakage que percorre uma sequência de instantes as-of e afirma que nenhum resultado contém registro com `ingested_at` posterior ao instante consultado
+- [x] 4.1 Implementar em `internal/observation` a leitura corrente (versão de maior `ingested_at` por chave natural) e a leitura as-of restrita a `ingested_at <= T`; verificar com testes que registro ingerido após T é invisível na consulta as-of, que a leitura corrente não duplica por versão, e que a mesma consulta as-of repetida retorna conjunto idêntico
+- [x] 4.2 Rejeitar consulta as-of com instante futuro; verificar com teste que retorna erro em vez de estado atual
+- [x] 4.3 Implementar filtro por proveniência (apenas reais, apenas sintéticos, ambos); verificar com teste que o filtro por reais não retorna nenhum sintético
+- [x] 4.4 Garantir que `ingested_at` fornecido pelo chamador é ignorado na escrita; verificar com teste que persiste informando `ingested_at` no passado e confirma que o valor gravado é o instante da persistência
+- [x] 4.5 Escrever teste de data leakage que percorre uma sequência de instantes as-of e afirma que nenhum resultado contém registro com `ingested_at` posterior ao instante consultado
 
 ## 5. Registro de fontes e catálogo de vulcões
 
