@@ -58,18 +58,12 @@ export function AboutModal({
           <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a>
         </dd>
 
-        <dt>Código</dt>
+        <dt>Projeto</dt>
         <dd>
           <a href={REPO_URL} target="_blank" rel="noreferrer noopener">
-            github.com/vilsonfr/volcanopredict
+            Aberto e público
           </a>
         </dd>
-
-        <dt>Licença</dt>
-        <dd>MIT</dd>
-
-        <dt>Versão</dt>
-        <dd>V0.1 — fundação</dd>
       </dl>
 
       <h3>Fontes de dados</h3>
@@ -89,7 +83,6 @@ export function AboutModal({
           Imagem de satélite: Esri, Maxar, Earthstar Geographics e a comunidade
           de usuários GIS
         </li>
-        <li>Renderização 3D: CesiumJS</li>
       </ul>
     </dialog>
   );

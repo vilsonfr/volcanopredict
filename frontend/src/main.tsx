@@ -23,7 +23,7 @@ function App() {
       <header>
         <h1>🌋 VolcanoPredict</h1>
         <div className="header__right">
-          <span>V0.1 • pesquisa aberta</span>
+          <span>pesquisa aberta</span>
           <button
             type="button"
             className="about__trigger"
@@ -53,10 +53,10 @@ function App() {
             </em>
           </label>
           <label>
-            <input type="checkbox" disabled /> Terremotos <em>V0.2</em>
+            <input type="checkbox" disabled /> Terremotos <em>em breve</em>
           </label>
           <label>
-            <input type="checkbox" disabled /> Placas tectônicas <em>V0.3</em>
+            <input type="checkbox" disabled /> Placas tectônicas <em>em breve</em>
           </label>
           <label>
             <input type="checkbox" disabled /> Vento / cinzas <em>futuro</em>
@@ -73,15 +73,8 @@ function App() {
               Não foi possível carregar o catálogo pela API: {volcanoError}
             </p>
           )}
-          {hasRealTerrain === false && (
-            <p className="hint">
-              Relevo 3D desligado. Defina <code>VITE_CESIUM_ION_TOKEN</code> no{" "}
-              <code>.env</code> com um token gratuito do Cesium Ion para ativar
-              a elevação real do terreno.
-            </p>
-          )}
           {hasRealTerrain === true && (
-            <p className="hint hint--ok">Relevo 3D real ativo.</p>
+            <p className="hint hint--ok">Relevo do terreno ativo.</p>
           )}
         </aside>
       </section>
