@@ -47,6 +47,15 @@ services:
       target: dev
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      VITE_CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN:-}
+    volumes:
+      # Sem estes binds o container serve o codigo copiado na imagem, e toda
+      # edicao local exige rebuild. node_modules fica como volume anonimo para
+      # nao ser encoberto pelo diretorio do host.
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - /app/node_modules
     depends_on:
       - backend
     ports:
