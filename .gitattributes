@@ -1,0 +1,3 @@
+# O snapshot do GVP e dado versionado: normalizacao de fim de linha mudaria
+# os bytes e invalidaria o SHA-256 do MANIFEST.
+backend/data/gvp/*.xls -text -diff
